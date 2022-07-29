@@ -1,0 +1,51 @@
+
+#appender 负责将日志收集到控制台或文件, 可配置多个
+appenders:
+  stdout:
+    kind: console
+    encoder:
+      pattern: "{d(%Y-%m-%d %H:%M:%S)} {h({l})} [{M}] - {m}{n}"
+  default:
+    kind: rolling_file
+    path: "logs/default.log"
+    encoder:
+      kind: json
+    policy:
+      kind: compound # 默认值, 即使用所有 policy
+      trigger: # 当文件超过10mb 时触发 rotate
+        kind: size
+        limit: 50 mb
+      roller: # rotate 类型
+        #kind: delete # 直接原有文件
+        # 或者用 fixed_window
+        kind: fixed_window
+        pattern: "default-{}-.log" # 注意, 需要至少包含 "{}" 用于插入索引值
+        base: 1 # 压缩日志索引值起点
+        count: 5   # 最大保存压缩文件数
+  error:
+    kind: rolling_file
+    path: "logs/error.log"
+    encoder:
+      kind: json
+    filters:
+      - kind: threshold
+        level: error
+    policy:
+      kind: compound # 默认值, 即使用所有 policy
+      trigger: # 当文件超过10mb 时触发 rotate
+        kind: size
+        limit: 50 mb
+      roller: # rotate 类型
+        #kind: delete # 直接原有文件
+        # 或者用 fixed_window
+        kind: fixed_window
+        pattern: "default-{}-.log" # 注意, 需要至少包含 "{}" 用于插入索引值
+        base: 1 # 压缩日志索引值起点
+        count: 5   # 最大保存压缩文件数
+# 对全局 log 进行配置
+root:
+  level: debug
+  appenders:
+    - stdout
+    - default
+    - error
