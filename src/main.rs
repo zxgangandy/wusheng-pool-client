@@ -6,7 +6,7 @@ mod stats;
 
 use std::process;
 use structopt::StructOpt;
-use log::{info};
+use log::{info, error};
 use log4rs;
 use anyhow::Result;
 use cmd::gen_account;
@@ -31,12 +31,11 @@ async fn run(cli: Cli) -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<()>{
     log4rs::init_file("config/config.yaml", Default::default()).unwrap();
-    info!("Hello, world!");
 
     let cli = Cli::from_args();
 
     if let Err(e) = run(cli).await {
-        eprintln!("error: {:?}", e);
+        error!("Run command error: {:?}", e);
         process::exit(1);
     }
 
