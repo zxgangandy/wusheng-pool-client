@@ -10,6 +10,7 @@ use log4rs;
 use anyhow::Result;
 use cmd::gen_account;
 use cmd::cpu_mining;
+use cmd::gpu_mining;
 
 #[derive(Debug, StructOpt)]
 pub struct Cli {
@@ -21,12 +22,14 @@ pub struct Cli {
 pub enum Cmd {
     GenAccount(gen_account::Cmd),
     CpuMining(cpu_mining::Cmd),
+    GpuMining(gpu_mining::Cmd),
 }
 
 async fn run(cli: Cli) -> Result<()> {
     match cli.cmd {
         Cmd::GenAccount(cmd) => cmd.run().await,
         Cmd::CpuMining(cmd) => cmd.run().await,
+        Cmd::GpuMining(cmd) => cmd.run().await,
     }
 }
 
