@@ -1,10 +1,12 @@
 use bytes::BytesMut;
 use json_rpc_types::{Error, Id, Request, Response, Version};
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::io;
+use serde::{Deserialize, Serializer, Deserializer};
+use serde::ser::{Serialize, SerializeSeq};
 use tokio_util::codec::{AnyDelimiterCodec, Decoder, Encoder};
-use crate::stratum::protocol::StratumProtocol;
+use erased_serde::Serialize as ErasedSerialize;
+use crate::stratum::protocol::*;
 
 pub struct StratumCodec {
     pub codec: AnyDelimiterCodec,
@@ -17,7 +19,6 @@ impl Default for StratumCodec {
         }
     }
 }
-
 
 impl Encoder<StratumProtocol> for StratumCodec {
     type Error = io::Error;
@@ -33,11 +34,11 @@ impl Encoder<StratumProtocol> for StratumCodec {
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
             }
-            StratumProtocol::Authorize(id, account_name, worker_name, worker_password) => {
+            StratumProtocol::Authorize(id, worker_name, worker_password) => {
                 let request = Request {
                     jsonrpc: Version::V2,
                     method: "mining.authorize",
-                    params: Some(AuthorizeParams(account_name, worker_name, worker_password)),
+                    params: Some(vec![worker_name, worker_password]),
                     id: Some(id),
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
@@ -76,11 +77,11 @@ impl Encoder<StratumProtocol> for StratumCodec {
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
             }
-            StratumProtocol::Submit(id, job_id, nonce, proof) => {
+            StratumProtocol::Submit(id, worker_name, job_id, nonce, proof) => {
                 let request = Request {
                     jsonrpc: Version::V2,
                     method: "mining.submit",
-                    params: Some(vec![job_id, nonce, proof]),
+                    params: Some(vec![worker_name, job_id, nonce, proof]),
                     id: Some(id),
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
@@ -91,7 +92,7 @@ impl Encoder<StratumProtocol> for StratumCodec {
                     serde_json::to_vec(&response).unwrap_or_default()
                 }
                 None => {
-                    let response = Response::<Option<ResponseMessage>, ()>::result(
+                    let response = Response::<Option<ResponseParams>, ()>::result(
                         Version::V2,
                         result,
                         Some(id),
@@ -163,26 +164,15 @@ impl Decoder for StratumCodec {
                     )
                 }
                 "mining.authorize" => {
-                    if params.len() != 3 {
+                    if params.len() != 2 {
                         return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid params"));
                     }
-                    let account_name = unwrap_str_value(&params[0])?;
-                    let miner_name = unwrap_str_value(&params[1])?;
-                    let worker_password = match &params[2] {
-                        Value::String(s) => Some(s),
-                        Value::Null => None,
-                        _ => {
-                            return Err(io::Error::new(
-                                io::ErrorKind::InvalidData,
-                                "Invalid params",
-                            ))
-                        }
-                    };
+                    let miner_name = unwrap_str_value(&params[0])?;
+                    let worker_password = unwrap_str_value(&params[1])?;
                     StratumProtocol::Authorize(
                         id.unwrap_or(Id::Num(0)),
-                        account_name,
                         miner_name,
-                        worker_password.cloned(),
+                        worker_password,
                     )
                 }
                 "mining.set_target" => {
@@ -215,22 +205,23 @@ impl Decoder for StratumCodec {
                     )
                 }
                 "mining.submit" => {
-                    if params.len() != 3 {
+                    if params.len() != 4 {
                         return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid params"));
                     }
 
-                    let job_id = unwrap_str_value(&params[0])?;
-                    let nonce = unwrap_str_value(&params[1])?;
-                    let proof = unwrap_str_value(&params[2])?;
+                    let worker_name = unwrap_str_value(&params[0])?;
+                    let job_id = unwrap_str_value(&params[1])?;
+                    let nonce = unwrap_str_value(&params[2])?;
+                    let proof = unwrap_str_value(&params[3])?;
 
-                    StratumProtocol::Submit(id.unwrap_or(Id::Num(0)), job_id, nonce, proof)
+                    StratumProtocol::Submit(id.unwrap_or(Id::Num(0)), worker_name, job_id, nonce, proof)
                 }
                 _ => {
                     return Err(io::Error::new(io::ErrorKind::InvalidData, "Unknown method"));
                 }
             }
         } else {
-            let response = serde_json::from_value::<Response<ResponseMessage, ()>>(json)
+            let response = serde_json::from_value::<Response<ResponseParams, ()>>(json)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
             let id = response.id;
             match response.payload {
@@ -273,5 +264,47 @@ fn unwrap_u64_value(value: &Value) -> Result<u64, io::Error> {
             io::ErrorKind::InvalidData,
             "Param is not u64",
         )),
+    }
+}
+
+impl Serialize for ResponseParams {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        match self {
+            ResponseParams::Bool(ok) => serializer.serialize_bool(*ok),
+            ResponseParams::Array(v) => {
+                let mut seq = serializer.serialize_seq(Some(v.len()))?;
+                for item in v {
+                    seq.serialize_element(item)?;
+                }
+                seq.end()
+            }
+            ResponseParams::Null => serializer.serialize_none(),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ResponseParams {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        match value {
+            Value::Bool(b) => Ok(ResponseParams::Bool(b)),
+            Value::Array(a) => {
+                let mut vec: Vec<Box<dyn ErasedSerialize + Send + Sync>> = Vec::new();
+                let _ = a.iter().map(|v| match v {
+                    Value::String(s) => vec.push(Box::new(s.clone())),
+                    Value::Number(n) => vec.push(Box::new(n.as_u64())),
+                    _ => {}
+                });
+                Ok(ResponseParams::Array(vec))
+            }
+            Value::Null => Ok(ResponseParams::Null),
+            _ => Err(serde::de::Error::custom("invalid response params")),
+        }
     }
 }

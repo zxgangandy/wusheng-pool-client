@@ -1,12 +1,15 @@
 use json_rpc_types::{Error, Id, Request, Response, Version};
+use serde::{Deserialize, Serialize};
+use erased_serde::Serialize as ErasedSerialize;
+
 
 /// Miner and pool server communication protocol
 pub enum StratumProtocol {
     /// (id, user_agent, protocol_version, session_id)
     Subscribe(Id, String, String, Option<String>),
 
-    /// (id, account_name, miner_name, worker_password)
-    Authorize(Id, String, String, Option<String>),
+    /// (id, miner_name, worker_password)
+    Authorize(Id, String, String),
 
     /// This is the difficulty target for the next job.
     /// (difficulty_target)
@@ -18,9 +21,21 @@ pub enum StratumProtocol {
     Notify(String, String, String, String, String, String, bool),
 
     /// Submit shares to the pool.
-    /// (id, job_id, nonce, proof)
-    Submit(Id, String, String, String),
+    /// (id, worker_name, job_id, nonce, proof)
+    Submit(Id, String, String, String, String),
 
-    ///// (id, result, error)
-    //Response(Id, Option<ResponseMessage>, Option<Error<()>>),
+    /// (id, result, error)
+    Response(Id, Option<ResponseParams>, Option<Error<()>>),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NotifyParams(pub String, pub String, pub String, pub String, pub String, pub String, pub bool);
+
+#[derive(Serialize, Deserialize)]
+pub struct SubscribeParams(pub String, pub String, pub Option<String>);
+
+pub enum ResponseParams {
+    Bool(bool),
+    Array(Vec<Box<dyn ErasedSerialize + Send + Sync>>),
+    Null,
 }

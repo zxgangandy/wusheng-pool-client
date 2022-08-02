@@ -29,7 +29,7 @@ impl Client {
         // step2. subscribe
         self.start_subscribe().await;
 
-        Ok(());
+        Ok(())
     }
 
 
@@ -42,7 +42,7 @@ impl Client {
                 Ok(stream) => match stream {
                     Ok(stream) => {
                         info!("Connected to {}", &pool_server);
-                        Ok(stream);
+                        return Ok(stream);
                     }
                     Err(e) => {
                         error!("Failed to connect to the pool server: {}", e);
@@ -60,17 +60,17 @@ impl Client {
 
         self.send_subscribe_req().await;
         self.wait_subscribe_resp().await;
-        Ok(());
+        Ok(())
     }
 
     async fn send_subscribe_req(&self,)-> Result<()> {
 
-        Ok(());
+        Ok(())
     }
 
     async fn wait_subscribe_resp(&self,)-> Result<()> {
 
-        Ok(());
+        Ok(())
     }
 }
 

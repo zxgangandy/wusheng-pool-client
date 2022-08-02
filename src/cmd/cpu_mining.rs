@@ -31,6 +31,8 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self) -> Result<()> {
 
+
+        std::future::pending::<()>().await;
         Ok(())
     }
 }
