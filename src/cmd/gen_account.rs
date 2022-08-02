@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, prelude::*};
 use snarkvm::{dpc::testnet2::Testnet2, prelude::Account};
-use log::{info};
+use log::{info, warn};
 use structopt::StructOpt;
 use anyhow::Result;
 
@@ -27,8 +27,8 @@ impl Cmd {
         info!("{}", view_key);
         info!("{}", address);
 
-        info!("WARNING: Make sure you have a backup of both private key and view key!");
-        info!("Nobody can help you recover those keys if you lose them!");
+        warn!("WARNING: Make sure you have a backup of both private key and view key!");
+        warn!("WARNING: Nobody can help you recover those keys if you lose them!");
 
         if self.file.is_some() {
             let content = format!("{}\n{}\n{}", private_key, view_key, address);
