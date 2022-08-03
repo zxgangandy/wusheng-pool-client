@@ -6,3 +6,6 @@ wusheng-pool-client
   -- gen-account  --file=config/account-backup.txt
 
 # cpu mining
+- run --package wusheng-pool-client --bin wusheng-pool-client
+  -- cpu-mining  --address=aleo1x3dm5pzdfs8hxg6xckx5lnndmarhnpe03h7lcg32c63dhc5pdcfqht927g 
+  --pool_server=127.0.0.1:8888 --worker=1 --threads=8

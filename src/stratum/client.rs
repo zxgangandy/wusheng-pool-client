@@ -8,6 +8,8 @@ use tokio::{
     time::{sleep, timeout},
 };
 use tokio_util::codec::Framed;
+use futures_util::sink::SinkExt;
+use tokio_stream::StreamExt;
 use snarkvm::dpc::testnet2::Testnet2;
 use snarkvm::prelude::Address;
 use log::{error, info};
@@ -17,7 +19,7 @@ use crate::stratum::codec::StratumCodec;
 use crate::stratum::protocol::StratumProtocol;
 
 pub struct Client{
-
+    stream: Framed<TcpStream, StratumCodec>,
 }
 
 impl Client {
@@ -27,7 +29,7 @@ impl Client {
         let mut framed = Framed::new(stream, StratumCodec::default());
 
         // step2. subscribe
-        if let Err(error) = self.start_subscribe(& mut framed).await {
+        if let Err(error) = self.start_subscribe(&mut framed).await {
             error!("[Subscribe] {}", error);
             return Err(anyhow!("Failed to subscribe to the server {}", error));
         }
@@ -36,7 +38,7 @@ impl Client {
     }
 
 
-    async fn connect_to_pool_server(
+    pub async fn connect_to_pool_server(
         &self,
         pool_server: SocketAddr,
     ) -> Result<TcpStream>  {
@@ -63,26 +65,28 @@ impl Client {
 
         if let Err(error) = self.send_subscribe_req(framed).await {
             error!("[Subscribe request] {}", error);
-            return Err(anyhow!("Failed to send subscribe request to the server {}", error));
+            return Err(anyhow!(error));
         }
 
         if let Err(error) = self.wait_subscribe_resp(framed).await {
             error!("[Subscribe response] {}", error);
-            return Err(anyhow!("Failed to wait subscribe response from the server {}", error));
+            return Err(anyhow!(error));
         }
 
         Ok(())
     }
 
     async fn send_subscribe_req(&self, framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
-        return framed
-            .send(StratumMessage::Subscribe(
-                Id::Num(0),
-                "user_agent".to_string(),
-                CURRENT_PROTOCOL_VERSION.to_string(),
-                None,
-            ))
-            .await;
+        if let Err(error) = framed.send(StratumProtocol::Subscribe(
+            Id::Num(0),
+            format!("pool-client-{}", env!("CARGO_PKG_VERSION")),
+            "AleoStratum/1.0.0".to_string(),
+            None,
+        )).await {
+            return Err(anyhow!("Send subscribe request to the server error {}", error));
+        }
+
+        Ok(())
     }
 
     async fn wait_subscribe_resp(&self, framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
@@ -92,7 +96,7 @@ impl Client {
                     StratumProtocol::Response(_id, _result, error) => {
                         if !error.is_none() {
                             error!("Client subscribe error {}", error.unwrap().message);
-                            return Err(anyhow!(error.unwrap().message));
+                            return Err(anyhow!("Server subscribe response with error!!!"));
                         } else {
                             info!("Client subscribe successful!!!");
                         }
