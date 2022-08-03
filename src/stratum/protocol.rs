@@ -1,4 +1,4 @@
-use json_rpc_types::{Error, Id, Request, Response, Version};
+use json_rpc_types::{Error, Id};
 use serde::{Deserialize, Serialize};
 use erased_serde::Serialize as ErasedSerialize;
 

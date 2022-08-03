@@ -19,12 +19,14 @@ use crate::stratum::codec::StratumCodec;
 use crate::stratum::protocol::StratumProtocol;
 
 pub struct Client{
-    stream: Framed<TcpStream, StratumCodec>,
 }
 
 impl Client {
+    pub fn new() -> Self {
+        Client {}
+    }
 
-    pub async fn start(&self, pool_server: SocketAddr, address: Address<Testnet2>) -> Result<()>  {
+    pub async fn start(&self, pool_server: &SocketAddr, address: &Address<Testnet2>) -> Result<()>  {
         let stream = self.connect_to_pool_server(pool_server).await?;
         let mut framed = Framed::new(stream, StratumCodec::default());
 
@@ -40,7 +42,7 @@ impl Client {
 
     pub async fn connect_to_pool_server(
         &self,
-        pool_server: SocketAddr,
+        pool_server: &SocketAddr,
     ) -> Result<TcpStream>  {
         loop {
             match timeout(Duration::from_secs(5), TcpStream::connect(pool_server)).await {
