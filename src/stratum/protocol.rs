@@ -28,6 +28,19 @@ pub enum StratumProtocol {
     Response(Id, Option<ResponseParams>, Option<Error<()>>),
 }
 
+impl StratumProtocol {
+    pub fn name(&self) -> &'static str {
+        match self {
+            StratumProtocol::Subscribe(..) => "mining.subscribe",
+            StratumProtocol::Authorize(..) => "mining.authorize",
+            StratumProtocol::SetTarget(..) => "mining.set_target",
+            StratumProtocol::Notify(..) => "mining.notify",
+            StratumProtocol::Submit(..) => "mining.submit",
+            StratumProtocol::Response(..) => "mining.response",
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct NotifyParams(pub String, pub String, pub String, pub String, pub String, pub String, pub bool);
 
