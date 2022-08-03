@@ -1,10 +1,12 @@
 use std::{future, net::SocketAddr};
+use std::str::FromStr;
 use log::{info, error};
 use structopt::StructOpt;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use snarkvm::dpc::testnet2::Testnet2;
 use snarkvm::prelude::Address;
+use snarkvm::traits::Network;
 use tokio::task;
 
 use crate::stratum::client;
@@ -15,7 +17,7 @@ use crate::stratum::client::Client;
 pub struct Cmd {
     #[structopt(short, long)]
     /// The miner address (aleo1...)
-    address: Address<Testnet2>,
+    address: String,
 
     #[structopt(short="s", long="pool-server")]
     /// Ip:port of the pool server
@@ -43,7 +45,7 @@ impl Cmd {
 
     async fn run_client(&self)->Result<()> {
         let pool_server = self.pool_server.clone();
-        let address = self.address;
+        let address = self.get_address::<Testnet2>(&self.address);
         task::spawn( async move {
             let client = Client::new();
             if let Err(error) = client.start(&pool_server, &address).await {
@@ -52,5 +54,10 @@ impl Cmd {
         });
 
         Ok(())
+    }
+
+    fn get_address<N>(&self, address: &String) -> Address<N> where N: Network {
+        let address = Address::<N>::from_str(address).unwrap();
+        return address;
     }
 }
