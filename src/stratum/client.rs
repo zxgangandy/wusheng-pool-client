@@ -27,13 +27,16 @@ impl Client {
     }
 
     pub async fn start(&self, pool_server: &SocketAddr, address: &Address<Testnet2>) -> Result<()>  {
-        let stream = self.connect_to_pool_server(pool_server).await?;
-        let mut framed = Framed::new(stream, StratumCodec::default());
+        loop {
+            let stream = self.connect_to_pool_server(pool_server).await?;
+            let mut framed = Framed::new(stream, StratumCodec::default());
 
-        // step2. subscribe
-        if let Err(error) = self.start_subscribe(&mut framed).await {
-            error!("[Subscribe] {}", error);
-            return Err(anyhow!("Failed to subscribe to the server {}", error));
+            // step2. subscribe
+            if let Err(error) = self.start_subscribe(&mut framed).await {
+                error!("[Subscribe] {}", error);
+                sleep(Duration::from_secs(5)).await;
+                continue;
+            }
         }
 
         Ok(())
@@ -64,7 +67,6 @@ impl Client {
     }
 
     async fn start_subscribe(&self, framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
-
         if let Err(error) = self.send_subscribe_req(framed).await {
             error!("[Subscribe request] {}", error);
             return Err(anyhow!(error));
@@ -79,6 +81,7 @@ impl Client {
     }
 
     async fn send_subscribe_req(&self, framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
+        info!("[start send subscribe request]");
         if let Err(error) = framed.send(StratumProtocol::Subscribe(
             Id::Num(0),
             format!("pool-client-{}", env!("CARGO_PKG_VERSION")),
@@ -92,31 +95,29 @@ impl Client {
     }
 
     async fn wait_subscribe_resp(&self, framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
+        info!("[start wait subscribe response]");
         match framed.next().await {
             Some(res) => match res {
                 Ok(msg) => match msg {
                     StratumProtocol::Response(_id, _result, error) => {
                         if !error.is_none() {
-                            error!("Client subscribe error {}", error.unwrap().message);
-                            return Err(anyhow!("Server subscribe response with error!!!"));
+                            return Err(anyhow!("Client subscribe error {}", error.unwrap().message));
                         } else {
                             info!("Client subscribe successful!!!");
                         }
                     }
                     _ => {
-                        error!("Unexpected response for message {}", msg.name());
                         return Err(anyhow!("Unexpected response for message {}", msg.name()));
                     },
                 },
                 Err(e) => {
-                    error!("{}", e);
+                    return Err(anyhow!("Server disconnected error: {}", e));
                 }
             },
             None => {
-                error!("disconnected");
+                return Err(anyhow!("Server disconnected!!!"));
             }
         }
-        info!("subscribe ok");
         Ok(())
     }
 }
