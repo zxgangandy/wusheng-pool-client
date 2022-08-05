@@ -13,7 +13,7 @@ use crate::stratum::client;
 use crate::stratum::client::Client;
 
 #[derive(Debug, StructOpt)]
-/// CPU mining command will use cups to mine the proof.
+/// CPU mining command will use cups of devices to mine the proof.
 pub struct Cmd {
     #[structopt(short, long)]
     /// The miner address (aleo1...)
@@ -49,7 +49,7 @@ impl Cmd {
         task::spawn( async move {
             let client = Client::new();
             if let Err(error) = client.start(&pool_server, &address).await {
-                error!("[client start] error {}", error);
+                error!("[Stratum client start] error=> {}", error);
             }
         });
 

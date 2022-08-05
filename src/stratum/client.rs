@@ -26,20 +26,33 @@ impl Client {
         Client {}
     }
 
-    pub async fn start(&self, pool_server: &SocketAddr, address: &Address<Testnet2>) -> Result<()>  {
+    /// Start the stratum client
+    ///
+    /// The stratum protocol steps:
+    /// Preconditions: Client connected the pool server;
+    /// Step 1:
+    /// Client will send 'subscribe' request message to the stratum server,
+    /// then the stratum server send back 'subscribe' response;
+    /// Step 2:
+    ///
+    /// # Errors
+    ///
+    pub async fn start(
+        &self,
+        pool_server: &SocketAddr,
+        address: &Address<Testnet2>
+    ) -> Result<()>  {
         loop {
             let stream = self.connect_to_pool_server(pool_server).await?;
             let mut framed = Framed::new(stream, StratumCodec::default());
 
-            // step2. subscribe
+            // step1. subscribe
             if let Err(error) = self.start_subscribe(&mut framed).await {
                 error!("[Subscribe] {}", error);
                 sleep(Duration::from_secs(5)).await;
                 continue;
             }
         }
-
-        Ok(())
     }
 
 
@@ -66,7 +79,10 @@ impl Client {
         }
     }
 
-    async fn start_subscribe(&self, framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
+    async fn start_subscribe(
+        &self,
+        framed: &mut Framed<TcpStream, StratumCodec>
+    )-> Result<()> {
         if let Err(error) = self.send_subscribe_req(framed).await {
             error!("[Subscribe request] {}", error);
             return Err(anyhow!(error));
@@ -80,42 +96,49 @@ impl Client {
         Ok(())
     }
 
-    async fn send_subscribe_req(&self, framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
+    async fn send_subscribe_req(
+        &self,
+        framed: &mut Framed<TcpStream, StratumCodec>
+    )-> Result<()> {
         info!("[start send subscribe request]");
         if let Err(error) = framed.send(StratumProtocol::Subscribe(
             Id::Num(0),
-            format!("pool-client-{}", env!("CARGO_PKG_VERSION")),
+            format!("client/{}", env!("CARGO_PKG_VERSION")),
             "AleoStratum/1.0.0".to_string(),
             None,
         )).await {
-            return Err(anyhow!("Send subscribe request to the server error {}", error));
+            return Err(anyhow!("Send subscribe request error {}", error));
         }
 
         Ok(())
     }
 
-    async fn wait_subscribe_resp(&self, framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
+    async fn wait_subscribe_resp(
+        &self,
+        framed: &mut Framed<TcpStream, StratumCodec>
+    )-> Result<()> {
         info!("[start wait subscribe response]");
+
         match framed.next().await {
-            Some(res) => match res {
-                Ok(msg) => match msg {
+            Some(response) => match response {
+                Ok(message) => match message {
                     StratumProtocol::Response(_id, _result, error) => {
                         if !error.is_none() {
-                            return Err(anyhow!("Client subscribe error {}", error.unwrap().message));
+                            return Err(anyhow!("Response with error {}", error.unwrap().message));
                         } else {
                             info!("Client subscribe successful!!!");
                         }
                     }
                     _ => {
-                        return Err(anyhow!("Unexpected response for message {}", msg.name()));
+                        return Err(anyhow!("Unexpected response for message {}", message.name()));
                     },
                 },
                 Err(e) => {
-                    return Err(anyhow!("Server disconnected error: {}", e));
+                    return Err(anyhow!("Server disconnected: {}", e));
                 }
             },
             None => {
-                return Err(anyhow!("Server disconnected!!!"));
+                return Err(anyhow!("Server disconnected for unexpected reason!!!"));
             }
         }
         Ok(())
