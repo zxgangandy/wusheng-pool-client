@@ -31,10 +31,8 @@ impl Client {
 
     /// Start the stratum client
     ///
-    /// The stratum protocol steps:
-    /// Preconditions: Client connected the pool server;
+    /// Preconditions: Client connected the pool server, then handler start to run.
     ///
-    /// # Errors
     ///
     pub async fn start(&self) -> Result<()>  {
         loop {
@@ -42,7 +40,7 @@ impl Client {
             let mut framed = Framed::new(stream, StratumCodec::default());
 
             // step1. subscribe
-            let mut handler = Handler::new(framed);
+            let mut handler = Handler::new(framed, self.miner_address);
             if let Err(error) = handler.run().await {
                 error!("[Subscribe] {}", error);
                 sleep(Duration::from_secs(5)).await;

@@ -1,5 +1,6 @@
 use log::{error, info};
 use anyhow::Result;
+use anyhow::{anyhow, bail};
 use json_rpc_types::Id;
 use tokio_util::codec::Framed;
 use tokio::net::TcpStream;
@@ -13,38 +14,56 @@ pub struct AuthorizeHandler;
 
 impl AuthorizeHandler {
 
-    async fn start_authorize(framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
+    pub async fn apply(
+        framed: &mut Framed<TcpStream, StratumCodec>
+    )-> Result<()> {
+        if let Err(error) = AuthorizeHandler::send_authorize_req(framed).await {
+            error!("[Authorize request] {}", error);
+            return Err(anyhow!(error));
+        }
+
+        if let Err(error) = AuthorizeHandler::wait_authorize_resp(framed).await {
+            error!("[Authorize response] {}", error);
+            return Err(anyhow!(error));
+        }
+
+        Ok(())
+    }
+
+    async fn send_authorize_req(framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
         let mut id = 1;
-        let authorization =
-            StratumProtocol::Authorize(Id::Num(id), "client.address".to_string(), "".to_string());
+        let authorization = StratumProtocol::Authorize(
+            Id::Num(id),
+            "client.address".to_string(),
+            "".to_string()
+        );
         id += 1;
         if let Err(e) = framed.send(authorization).await {
-            error!("Error sending authorization: {}", e);
+            return Err(anyhow!("Error sending authorization: {}", e));
         } else {
-            info!("Sent authorization");
+            info!("Client sent authorization success!!!");
         }
+        Ok(())
+    }
+
+    async fn wait_authorize_resp(framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
         match framed.next().await {
             None => {
-                error!("Unexpected end of stream");
-                //sleep(Duration::from_secs(5)).await;
-                //continue;
+                return Err(anyhow!("Unexpected end of stream"));
             }
             Some(Ok(message)) => match message {
                 StratumProtocol::Response(_, _, _) => {
                     info!("Authorization successful");
                 }
                 _ => {
-                    error!("Unexpected message: {:?}", message.name());
+                    return Err(anyhow!("Unexpected message: {:?}", message.name()));
                 }
             },
             Some(Err(e)) => {
-                error!("Error receiving authorization: {}", e);
-                //sleep(Duration::from_secs(5)).await;
-                //continue;
+                return Err(anyhow!("Error receiving authorization: {}", e));
             }
         }
-
         Ok(())
-
     }
+
 }

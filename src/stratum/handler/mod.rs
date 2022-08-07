@@ -12,17 +12,19 @@ use log::{error, info};
 use anyhow::Result;
 use tokio_util::codec::Framed;
 use crate::stratum::codec::StratumCodec;
-use crate::stratum::handler::subscribe::SubscribeHandler;
+use authorize::AuthorizeHandler;
+use subscribe::SubscribeHandler;
 
 #[derive(Debug)]
 pub struct Handler {
     pub framed: Framed<TcpStream, StratumCodec>,
+    pub address: String,
 }
 
 impl Handler {
 
-    pub fn new(framed: Framed<TcpStream, StratumCodec>)-> Self {
-        return Handler{ framed}
+    pub fn new(framed: Framed<TcpStream, StratumCodec>, address: String)-> Self {
+        return Handler{ framed, address}
     }
 
     /// Step 1:
@@ -34,9 +36,11 @@ impl Handler {
             error!("[Subscribe handler apply failed] {}", error);
         }
 
+        if let Err(error) = AuthorizeHandler::apply(&mut self.framed).await {
+            error!("[Authorize handler apply failed] {}", error);
+        }
+
         Ok(())
     }
-
-
 
 }
