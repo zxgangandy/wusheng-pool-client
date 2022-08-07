@@ -45,10 +45,10 @@ impl Cmd {
 
     async fn run_client(&self)->Result<()> {
         let pool_server = self.pool_server.clone();
-        let address = self.get_address::<Testnet2>(&self.address);
+        let address = self.address.clone();
         task::spawn( async move {
-            let client = Client::new();
-            if let Err(error) = client.start(&pool_server, &address).await {
+            let client = Client::new(pool_server, address);
+            if let Err(error) = client.start().await {
                 error!("[Stratum client start] error=> {}", error);
             }
         });

@@ -8,6 +8,7 @@ use tokio_util::codec::{AnyDelimiterCodec, Decoder, Encoder};
 use erased_serde::Serialize as ErasedSerialize;
 use crate::stratum::protocol::*;
 
+#[derive(Debug)]
 pub struct StratumCodec {
     pub codec: AnyDelimiterCodec,
 }
