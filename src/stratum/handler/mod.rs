@@ -27,10 +27,15 @@ impl Handler {
         return Handler{ framed, address}
     }
 
+    /// handler run
+    ///
     /// Step 1:
     /// Client will send 'subscribe' request message to the stratum server,
     /// then the stratum server send back 'subscribe' response;
+    ///
     /// Step 2:
+    /// Client will send 'authorize' request message to the stratum server,
+    /// then the stratum server send back 'authorize' response;
     pub async fn run(&mut self) -> Result<()> {
         if let Err(error) = SubscribeHandler::apply(&mut self.framed).await {
             error!("[Subscribe handler apply failed] {}", error);
