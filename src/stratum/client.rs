@@ -40,7 +40,7 @@ impl Client {
             let mut framed = Framed::new(stream, StratumCodec::default());
 
             // step1. subscribe
-            let mut handler = Handler::new(framed, self.miner_address);
+            let mut handler = Handler::new(framed, &self.miner_address);
             if let Err(error) = handler.run().await {
                 error!("[Subscribe] {}", error);
                 sleep(Duration::from_secs(5)).await;

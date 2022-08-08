@@ -23,8 +23,8 @@ pub struct Handler {
 
 impl Handler {
 
-    pub fn new(framed: Framed<TcpStream, StratumCodec>, address: String)-> Self {
-        return Handler{ framed, address}
+    pub fn new(framed: Framed<TcpStream, StratumCodec>, address: &String)-> Self {
+        return Handler{ framed, address: address.clone()}
     }
 
     /// handler run
@@ -41,7 +41,7 @@ impl Handler {
             error!("[Subscribe handler apply failed] {}", error);
         }
 
-        if let Err(error) = AuthorizeHandler::apply(&mut self.framed).await {
+        if let Err(error) = AuthorizeHandler::apply(&mut self.framed, &self.address).await {
             error!("[Authorize handler apply failed] {}", error);
         }
 

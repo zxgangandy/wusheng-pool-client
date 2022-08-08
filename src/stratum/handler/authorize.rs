@@ -15,9 +15,10 @@ pub struct AuthorizeHandler;
 impl AuthorizeHandler {
 
     pub async fn apply(
-        framed: &mut Framed<TcpStream, StratumCodec>
+        framed: &mut Framed<TcpStream, StratumCodec>,
+        address: &String
     )-> Result<()> {
-        if let Err(error) = AuthorizeHandler::send_authorize_req(framed).await {
+        if let Err(error) = AuthorizeHandler::send_authorize_req(framed, address).await {
             error!("[Authorize request] {}", error);
             return Err(anyhow!(error));
         }
@@ -30,11 +31,14 @@ impl AuthorizeHandler {
         Ok(())
     }
 
-    async fn send_authorize_req(framed: &mut Framed<TcpStream, StratumCodec>)-> Result<()> {
+    async fn send_authorize_req(
+        framed: &mut Framed<TcpStream, StratumCodec>,
+        address: &String
+    )-> Result<()> {
         let mut id = 1;
         let authorization = StratumProtocol::Authorize(
             Id::Num(id),
-            "client.address".to_string(),
+            address.clone(),
             "".to_string()
         );
         id += 1;
