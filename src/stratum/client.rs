@@ -39,7 +39,6 @@ impl Client {
             let stream = self.connect_to_pool_server(&self.pool_server).await?;
             let mut framed = Framed::new(stream, StratumCodec::default());
 
-            // step1. subscribe
             let mut handler = Handler::new(framed, &self.miner_address);
             if let Err(error) = handler.run().await {
                 error!("[Client handler] {}", error);
@@ -72,7 +71,6 @@ impl Client {
             }
         }
     }
-
 
 }
 
