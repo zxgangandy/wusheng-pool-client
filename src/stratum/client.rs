@@ -42,7 +42,7 @@ impl Client {
             // step1. subscribe
             let mut handler = Handler::new(framed, &self.miner_address);
             if let Err(error) = handler.run().await {
-                error!("[Subscribe] {}", error);
+                error!("[Client handler] {}", error);
                 sleep(Duration::from_secs(5)).await;
                 continue;
             }
