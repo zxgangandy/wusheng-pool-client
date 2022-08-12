@@ -68,8 +68,7 @@ impl Handler {
                 }
                 result = framed.next() => match result {
                     Some(Ok(message)) => {
-                        //TODO://
-                        return Ok(());
+                        Handler::process_mining_message(message).await?;
                     }
                     Some(Err(e)) => {
                         error!("Client failed to read the message: {:?}", e);
@@ -84,39 +83,27 @@ impl Handler {
         }
     }
 
-    async fn process_message(framed: &mut Framed<TcpStream, StratumCodec>) -> Result<()> {
-        match framed.next().await {
-            Some(Ok(message)) => {
-                match message {
-                    StratumProtocol::Response(_, result, error) => {
-                        return Ok(());
-                    }
-                    StratumProtocol::Notify(
-                        job_id,
-                        block_header_root,
-                        hashed_leaves_1,
-                        hashed_leaves_2,
-                        hashed_leaves_3,
-                        hashed_leaves_4,
-                        _
-                    ) => {
-                        return Ok(());
-                    }
-                    StratumProtocol::SetTarget(difficulty_target) => {
-                        return Ok(());
-                    }
-                    _ => {
-                        info!("Unhandled message: {}", message.name());
-                    }
-                }
+    async fn process_mining_message(message: StratumProtocol) -> Result<()> {
+        match message {
+            StratumProtocol::Response(_, result, error) => {
+                info!("Client received response message");
             }
-            Some(Err(e)) => {
-                error!("Failed to read the message: {:?}", e);
+            StratumProtocol::Notify(
+                job_id,
+                block_header_root,
+                hashed_leaves_1,
+                hashed_leaves_2,
+                hashed_leaves_3,
+                hashed_leaves_4,
+                _
+            ) => {
+                info!("Client received notify message");
             }
-            None => {
-                error!("Disconnected from server");
-                // sleep(Duration::from_secs(5)).await;
-                // break;
+            StratumProtocol::SetTarget(difficulty_target) => {
+                info!("Client received set target message");
+            }
+            _ => {
+                info!("Unexpected message: {}", message.name());
             }
         }
 

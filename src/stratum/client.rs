@@ -57,7 +57,7 @@ impl Client {
             match timeout(Duration::from_secs(5), TcpStream::connect(pool_server)).await {
                 Ok(stream) => match stream {
                     Ok(stream) => {
-                        info!("Connected to {}", &pool_server);
+                        info!("Connected to pool server: {}", &pool_server);
                         return Ok(stream);
                     }
                     Err(e) => {
