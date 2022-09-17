@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 structopt = "0.3"
 json-rpc-types = "1.0.3"
-serde = "1.0.140"
-serde_json = "1.0.82"
+serde = "1"
+serde_json = "1"
 erased-serde = "0.3.21"
 bytes = "1.1.0"
 anyhow = "1.0.57"
@@ -17,9 +17,11 @@ log = "0.4.17"
 log4rs = "1.1.1"
 rand = "0.8.5"
 tokio = { version = "1", features = ["full"] }
-snarkvm = "0.8.0"
+
 futures = "0.3.21"
 futures-util = "0.3.21"
 tokio-util = {version = "0.7.1", features = ["codec"]}
 tokio-stream = "0.1.8"
-snarkos = "2.0.2"
+#snarkos = "2.0.2"
+
+snarkvm = {git = "https://github.com/AleoHQ/snarkVM.git",  rev = "b2cee23", features = ["circuit", "console", "parallel", "rest", "utilities", "algorithms"]}
