@@ -1,6 +1,6 @@
 mod stratum;
 mod cmd;
-mod worker;
+mod miner;
 mod stats;
 mod account;
 

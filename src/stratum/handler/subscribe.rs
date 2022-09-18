@@ -21,7 +21,7 @@ use crate::stratum::protocol::StratumProtocol;
 pub struct SubscribeHandler;
 
 impl SubscribeHandler {
-    pub async fn apply(
+    pub async fn exec(
         framed: &mut Framed<TcpStream, StratumCodec>
     )-> Result<()> {
         if let Err(error) = SubscribeHandler::send_subscribe_req(framed).await {

@@ -23,13 +23,13 @@ pub struct Cmd {
     /// Ip:port of the pool server
     pool_server: SocketAddr,
 
-    /// Worker is a thread pool used to calculate proof
-    #[structopt(short="w", long="worker", default_value = "1")]
-    worker: u8,
+    // /// Worker is a thread pool used to calculate proof
+    // #[structopt(short="w", long="worker", default_value = "1")]
+    // worker: u8,
 
-    /// Number of threads that every worker will use
+    /// Number of threads that every miner will use
     /// It is recommended to ensure
-    /// `worker * thread-per-worker` < `amount of threads of your device`
+    /// `miner * thread-per-miner` < `amount of threads of your device`
     #[structopt(short="t", long="threads", default_value = "4")]
     #[structopt(verbatim_doc_comment)]
     threads: u8,

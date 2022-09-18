@@ -14,7 +14,7 @@ pub struct AuthorizeHandler;
 
 impl AuthorizeHandler {
 
-    pub async fn apply(
+    pub async fn exec(
         framed: &mut Framed<TcpStream, StratumCodec>,
         address: &String
     )-> Result<()> {

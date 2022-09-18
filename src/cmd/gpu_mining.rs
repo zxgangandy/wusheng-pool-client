@@ -19,13 +19,13 @@ pub struct Cmd {
     pool_server: SocketAddr,
 
     /// Worker is a thread pool used to calculate proof
-    #[structopt(short="w", long="worker", default_value = "1")]
+    #[structopt(short="w", long="miner", default_value = "1")]
     worker: u8,
 
-    /// Number of threads that every worker will use
+    /// Number of threads that every miner will use
     /// It is recommended to ensure
-    /// `worker * thread-per-worker` < `amount of threads of your device`
-    #[structopt(short="threads", long="thread-per-worker", default_value = "4")]
+    /// `miner * thread-per-miner` < `amount of threads of your device`
+    #[structopt(short="threads", long="thread-per-miner", default_value = "4")]
     #[structopt(verbatim_doc_comment)]
     threads: u8,
 }

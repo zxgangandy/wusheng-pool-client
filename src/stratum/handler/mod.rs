@@ -45,12 +45,12 @@ impl Handler {
     /// Client will send 'authorize' request message to the stratum server,
     /// then the stratum server send back 'authorize' response;
     pub async fn run(&mut self) -> Result<()> {
-        if let Err(error) = SubscribeHandler::apply(&mut self.framed).await {
+        if let Err(error) = SubscribeHandler::exec(&mut self.framed).await {
             error!("[Subscribe handler apply failed] {}", error);
             return Err(anyhow!(error));
         }
 
-        if let Err(error) = AuthorizeHandler::apply(&mut self.framed, &self.address).await {
+        if let Err(error) = AuthorizeHandler::exec(&mut self.framed, &self.address).await {
             error!("[Authorize handler apply failed] {}", error);
             return Err(anyhow!(error));
         }
