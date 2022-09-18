@@ -1,9 +1,11 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, prelude::*};
-use snarkvm::{dpc::testnet2::Testnet2, prelude::Account};
+//use snarkvm::{dpc::testnet2::Testnet2, prelude::Account};
 use log::{info, warn};
 use structopt::StructOpt;
 use anyhow::Result;
+use snarkvm::prelude::Testnet3;
+use crate::account::Account;
 
 
 #[derive(Debug, StructOpt)]
@@ -18,7 +20,7 @@ impl Cmd {
 
     pub async fn run(&self) -> Result<()> {
         info!("Start to run generating account command!!!");
-        let account = Account::<Testnet2>::new(&mut rand::thread_rng());
+        let account = Account::<Testnet3>::new()?;
         let private_key = format!("Private key:  {}", account.private_key());
         let view_key = format!("View key:  {}", account.view_key());
         let address = format!("Address:  {}", account.address());

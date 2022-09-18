@@ -2,6 +2,7 @@ mod stratum;
 mod cmd;
 mod worker;
 mod stats;
+mod account;
 
 use std::process;
 use structopt::StructOpt;

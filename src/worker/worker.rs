@@ -4,10 +4,10 @@ use std::{net::SocketAddr,
 };
 use anyhow::Result;
 use anyhow::{anyhow, bail};
-use snarkvm::{
-    dpc::testnet2::Testnet2,
-    prelude::{BlockHeader, BlockTemplate},
-};
+// use snarkvm::{
+//     dpc::testnet2::Testnet2,
+//     prelude::{BlockHeader, BlockTemplate},
+// };
 //use snarkos::{Prover, ProverTrial};
 
 use tokio::{
@@ -45,20 +45,20 @@ impl Worker {
         Ok(())
     }
 
-    async fn process_pool_request(
-        pool_server: SocketAddr,
-        operator_ip: SocketAddr,
-        share_difficulty: u64,
-        block_template: BlockTemplate<N>
-    ) -> Result<()> {
-
-        if pool_server == operator_ip {
-
-        }
-
-
-        Ok(())
-    }
+    // async fn process_pool_request(
+    //     pool_server: SocketAddr,
+    //     operator_ip: SocketAddr,
+    //     share_difficulty: u64,
+    //     block_template: BlockTemplate<N>
+    // ) -> Result<()> {
+    //
+    //     if pool_server == operator_ip {
+    //
+    //     }
+    //
+    //
+    //     Ok(())
+    // }
 
     // fn get_worker_status()-> bool {
     //     return !Prover<Testnet2>::terminator().load(Ordering::SeqCst) &&

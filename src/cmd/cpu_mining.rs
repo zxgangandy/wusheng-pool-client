@@ -4,9 +4,9 @@ use log::{info, error};
 use structopt::StructOpt;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
-use snarkvm::dpc::testnet2::Testnet2;
+//use snarkvm::dpc::testnet2::Testnet2;
 use snarkvm::prelude::Address;
-use snarkvm::traits::Network;
+//use snarkvm::traits::Network;
 use tokio::task;
 
 use crate::stratum::client;
@@ -56,8 +56,8 @@ impl Cmd {
         Ok(())
     }
 
-    fn get_address<N>(&self, address: &String) -> Address<N> where N: Network {
-        let address = Address::<N>::from_str(address).unwrap();
-        return address;
-    }
+    // fn get_address<N>(&self, address: &String) -> Address<N> where N: Network {
+    //     let address = Address::<N>::from_str(address).unwrap();
+    //     return address;
+    // }
 }

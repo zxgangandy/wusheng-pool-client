@@ -2,15 +2,17 @@ use std::{future, net::SocketAddr};
 use log::{info};
 use structopt::StructOpt;
 use anyhow::Result;
-use snarkvm::dpc::testnet2::Testnet2;
-use snarkvm::prelude::Address;
+use snarkvm::console::account::address::Address;
+use snarkvm::prelude::Testnet3;
+//use snarkvm::dpc::testnet2::Testnet2;
+//use snarkvm::prelude::Address;
 
 #[derive(Debug, StructOpt)]
 /// CPU mining command will use cups to mine the proof.
 pub struct Cmd {
     #[structopt(short, long)]
     /// The miner address (aleo1...)
-    address: Address<Testnet2>,
+    address: Address<Testnet3>,
 
     #[structopt(short="s", long="pool-server")]
     /// Ip:port of the pool server
