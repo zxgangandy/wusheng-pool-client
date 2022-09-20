@@ -82,7 +82,7 @@ impl Stats {
         Box::from(format!("{:.2}", rate))
     }
 
-    pub async fn result(&self, success: bool, msg: Option<String>) {
+    pub async fn print_shares(&self, success: bool, msg: Option<String>) {
         if success {
             let valid_minus_1 = self.valid_shares.fetch_add(1, Ordering::SeqCst);
             let valid = valid_minus_1 + 1;
@@ -143,6 +143,7 @@ impl Stats {
 #[cfg(test)]
 mod test {
     use std::collections::VecDeque;
+    use crate::stats::Stats;
 
     #[test]
     fn test_vecdeque() {
