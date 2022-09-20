@@ -139,3 +139,24 @@ impl Stats {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::collections::VecDeque;
+
+    #[test]
+    fn test_vecdeque() {
+        let log = VecDeque::from(vec![0;60]);
+        assert!(log.get(0).is_some());
+        let mut log = VecDeque::with_capacity(60);
+        assert!(log.get(0).is_none());
+        let cap = log.capacity();
+        for i in 1..=cap {
+            log.push_front(i);
+        }
+        assert_eq!(log.get(0).unwrap(), &cap);
+        assert_eq!(log.get(cap - 1).unwrap(), &1);
+        log.push_front(1);
+        assert_eq!(log.get(cap - 1).unwrap(), &2);
+    }
+}
