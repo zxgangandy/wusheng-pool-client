@@ -92,7 +92,7 @@ impl Manager {
             thread_per_worker
         );
 
-        //self.serve(rx, client_router, statistic_router);
+        self.serve(rx, client_router);
         info!("prover-cpu started");
         Ok(prover_router)
     }
@@ -102,12 +102,11 @@ impl Manager {
         mut self,
         mut rx: Receiver<ProverMsg>,
         client_router: Sender<ClientMsg>,
-        statistic_router: Sender<StatisticMsg>,
     ) {
         task::spawn(async move {
             while let Some(msg) = rx.recv().await {
                 match msg {
-                    ProverMsg::Exit(responder) => {
+                    MiningEvent::Exit(responder) => {
                         if let Err(err) = self.exit(&client_router, &statistic_router).await {
                             error!("failed to exit: {err}");
                             // grace exit failed, force exit
@@ -117,7 +116,7 @@ impl Manager {
                         break;
                     }
                     _ => {
-                        if let Err(err) = self.process_msg(msg, &statistic_router) {
+                        if let Err(err) = self.process_msg(msg) {
                             error!("prover failed to process message: {err}");
                         }
                     }
@@ -126,7 +125,7 @@ impl Manager {
         });
     }
 
-    fn process_msg(&mut self, msg: MiningEvent, statistic_router: &Sender<StatisticMsg>) -> Result<()> {
+    fn process_msg(&mut self, msg: MiningEvent) -> Result<()> {
         match msg {
             MiningEvent::NewWork(..) => {
                 for worker in self.workers.iter() {
