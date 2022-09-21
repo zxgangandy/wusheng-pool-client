@@ -1,18 +1,25 @@
 use std::net::SocketAddr;
+use std::process;
 use std::str::FromStr;
-use log::{info, error};
+use std::sync::Arc;
+use log::{info, error, warn};
 use std::sync::atomic::{AtomicBool, Ordering};
 use anyhow::{Context, ensure, Result};
 use anyhow::{anyhow, bail};
 use snarkvm::prelude::Address;
 use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::oneshot;
+use tokio::task;
 
 use crate::mining::miner::MinerEvent;
+use crate::mining::MiningEvent;
 use crate::stats::Stats;
+use crate::stratum::protocol::StratumProtocol;
 
 pub struct Manager {
     running: AtomicBool,
-    num_miner: Vec<Sender<MinerEvent>>,
+    workers: Vec<Sender<MinerEvent>>,
+    stats: Arc<Stats>,
 }
 
 impl Manager {
@@ -22,7 +29,8 @@ impl Manager {
         Self {
             running: AtomicBool::new(false),
             //prover_router: RwLock::new(tx),
-            num_miner: vec![]
+            workers: vec![],
+            stats: Arc::new(Stats::new()),
         }
     }
 
@@ -118,15 +126,14 @@ impl Manager {
         });
     }
 
-    fn process_msg(&mut self, msg: ProverMsg, statistic_router: &Sender<StatisticMsg>) -> Result<()> {
+    fn process_msg(&mut self, msg: MiningEvent, statistic_router: &Sender<StatisticMsg>) -> Result<()> {
         match msg {
-            ProverMsg::NewWork(template, difficulty) => {
-                let template = Arc::new(template);
+            MiningEvent::NewWork(..) => {
                 for worker in self.workers.iter() {
-                    worker.try_send(WorkerMsg::Notify(template.clone(), difficulty))?;
+                    worker.try_send(MinerEvent::NewWork(0, Some("NewWork".to_string())))?;
                 }
             }
-            ProverMsg::SubmitResult(valid, msg) => {
+            MiningEvent::SubmitResult(..) => {
                 if let Err(err) = statistic_router.try_send(StatisticMsg::SubmitResult(valid, msg)) {
                     error!("failed to send submit result to statistic mod: {err}");
                 }
@@ -136,6 +143,26 @@ impl Manager {
             }
         }
 
+        Ok(())
+    }
+
+    async fn exit(&mut self, client_router: &Sender<ClientMsg>, statistic_router: &Sender<StatisticMsg>) -> Result<()> {
+        let (tx, rx) = oneshot::channel();
+        client_router.send(ClientMsg::Exit(tx)).await.context("client")?;
+        rx.await.context("failed to get exit response of client")?;
+
+        for (i, worker) in self.workers.iter().enumerate() {
+            let (tx, rx) = oneshot::channel();
+            worker.send(MinerEvent::Exit(tx)).await.context("worker")?;
+            rx.await.context("failed to get exit response of worker")?;
+            info!("worker {i} terminated");
+        }
+        let (tx, rx) = oneshot::channel();
+        statistic_router
+            .send(StatisticMsg::Exit(tx))
+            .await
+            .context("statistic")?;
+        rx.await.context("failed to get exit response of statistic mod")?;
         Ok(())
     }
 

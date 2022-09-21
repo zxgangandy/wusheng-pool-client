@@ -15,21 +15,70 @@ use anyhow::Result;
 use anyhow::{anyhow, bail};
 use log::{debug, info};
 use ansi_term::Colour::{Cyan, Green, Red};
+use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{mpsc, oneshot};
+use tokio::task::JoinHandle;
 
 pub struct Stats{
     total_proofs: Arc<AtomicU32>,
     valid_shares: Arc<AtomicU32>,
     invalid_shares: Arc<AtomicU32>,
+    stats_sender: Sender<StatsEvent>,
+    handlers: Vec<JoinHandle<()>>,
+}
+
+#[derive(Debug)]
+pub enum StatsEvent {
+    Prove(bool, u32),
+    SubmitResult(bool, Option<String>),
+    Exit(oneshot::Sender<()>),
 }
 
 impl Stats {
 
     pub fn new() -> Self {
-        Stats {
+        let (tx, rx) = channel(256);
+        let mut stats = Stats {
             total_proofs: Arc::new(Default::default()),
             valid_shares: Arc::new(Default::default()),
-            invalid_shares: Arc::new(Default::default())
-        }
+            invalid_shares: Arc::new(Default::default()),
+            stats_sender: tx,
+            handlers: vec![]
+        };
+
+        stats.start_receiver(rx);
+        stats.start_calculator();
+
+        stats
+    }
+
+    pub fn sender(&self) -> Sender<StatsEvent> {
+        self.stats_sender.clone()
+    }
+
+    fn start_receiver(mut self, mut rx: Receiver<StatsEvent>) {
+        let handler = task::spawn(async move {
+            while let Some(msg) = rx.recv().await {
+                match msg {
+                    StatsEvent::Prove(valid, weight) => {
+                        self.update_total_proofs();
+                    }
+                    StatsEvent::SubmitResult(is_valid, msg) => {
+                        self.print_shares(is, msg).await;
+                    }
+                    StatsEvent::Exit(responder) => {
+                        for handler in self.handlers {
+                            handler.abort();
+                        }
+                        responder.send(()).expect("Failed to respond exit msg");
+                        debug!("Statistic exited");
+                        return
+                    },
+                }
+            }
+        });
+
+        self.handlers.push(handler);
     }
 
     pub fn update_total_proofs(&self) {
@@ -37,9 +86,9 @@ impl Stats {
     }
 
     /// start calculator
-    pub async fn start_calculator(&self)->Result<()> {
+    pub async fn start_calculator(&mut self) ->Result<()> {
         let total_proofs = self.total_proofs.clone();
-        task::spawn(async move {
+        let handler = task::spawn(async move {
             let mut log = VecDeque::<u32>::from(vec![0; 60]);
             loop {
                 sleep(Duration::from_secs(60)).await;
@@ -64,8 +113,10 @@ impl Stats {
                 );
             }
         });
-        debug!("Created proof rate calculator");
 
+        self.handlers.push(handler);
+
+        debug!("Created proof rate calculator");
 
         Ok(())
     }
