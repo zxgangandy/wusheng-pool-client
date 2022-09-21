@@ -11,5 +11,5 @@ wusheng-pool-client
   --pool-server=127.0.0.1:8888 --worker=1 --threads=8
 
 # design
-- one miner->multi thread-pool
-- one miner->one stats
+- manager->multi miner/one stats/one client
+- one miner->one message channel

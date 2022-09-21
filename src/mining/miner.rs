@@ -1,3 +1,5 @@
+
+
 use std::{net::SocketAddr,
           sync::{atomic::Ordering, Arc},
           time::Duration,
@@ -23,54 +25,42 @@ use crate::stats::Stats;
 
 
 pub struct Miner {
-    thread_pools: Arc<Vec<Arc<ThreadPool>>>,
-    total_proofs: Arc<AtomicU32>,
-    running: AtomicBool,
+    pool: ThreadPool,
+    //total_proofs: Arc<AtomicU32>,
+    //running: AtomicBool,
     stats: Stats,
 }
 
-#[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
 pub enum MinerEvent {
     NewWork(u64, Option<String>),
-    Result(bool, Option<String>),
+    Exit(oneshot::Sender<()>),
 }
 
 
 impl Miner {
-    pub fn new(threads: u16,) -> Self {
+    pub fn new(index: u8, threads: u16,) -> Self {
+        //let core_threads = num_cpus::get() as u16 / max_core;
 
-        let mut thread_pools: Vec<Arc<ThreadPool>> = Vec::new();
-        let pool_count;
-        let pool_threads;
-        if threads % 12 == 0 {
-            pool_count = threads / 12;
-            pool_threads = 12;
-        } else if threads % 10 == 0 {
-            pool_count = threads / 10;
-            pool_threads = 10;
-        } else if threads % 8 == 0 {
-            pool_count = threads / 8;
-            pool_threads = 8;
-        } else {
-            pool_count = threads / 6;
-            pool_threads = 6;
-        }
+        // for index in 0..max_core {
+        //     let pool = ThreadPoolBuilder::new()
+        //         .stack_size(8 * 1024 * 1024)
+        //         .num_threads(core_threads as usize)
+        //         .thread_name(move |idx| format!("cpu-core-{}-{}", index, idx))
+        //         .build().unwrap();
+        //     thread_pools.push(Arc::new(pool));
+        // }
 
-
-        for index in 0..pool_count {
-            let pool = ThreadPoolBuilder::new()
-                .stack_size(8 * 1024 * 1024)
-                .num_threads(pool_threads as usize)
-                .thread_name(move |idx| format!("cpu-miner-{}-{}", index, idx))
-                .build().unwrap();
-            thread_pools.push(Arc::new(pool));
-        }
-        info!("Created {} thread pools with {} threads each", thread_pools.len(), pool_threads);
+        let pool = ThreadPoolBuilder::new()
+            .stack_size(8 * 1024 * 1024)
+            .num_threads(threads as usize)
+            .thread_name(move |idx| format!("miner-{}-{}", index, idx))
+            .build().unwrap();
 
         Miner {
-            thread_pools: Arc::new(thread_pools),
-            total_proofs: Arc::new(Default::default()),
-            running: AtomicBool::new(false),
+            pool,
+            //total_proofs: Arc::new(Default::default()),
+            //running: AtomicBool::new(false),
             stats: Stats::new(),
         }
     }
@@ -164,4 +154,3 @@ impl Miner {
 
 
 }
-

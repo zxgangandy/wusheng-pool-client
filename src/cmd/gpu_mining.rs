@@ -11,7 +11,7 @@ use snarkvm::prelude::Testnet3;
 /// CPU mining command will use cups to mine the proof.
 pub struct Cmd {
     #[structopt(short, long)]
-    /// The miner address (aleo1...)
+    /// The mining address (aleo1...)
     address: Address<Testnet3>,
 
     #[structopt(short="s", long="pool-server")]
@@ -19,13 +19,13 @@ pub struct Cmd {
     pool_server: SocketAddr,
 
     /// Worker is a thread pool used to calculate proof
-    #[structopt(short="w", long="miner", default_value = "1")]
+    #[structopt(short="w", long="mining", default_value = "1")]
     worker: u8,
 
-    /// Number of threads that every miner will use
+    /// Number of threads that every mining will use
     /// It is recommended to ensure
-    /// `miner * thread-per-miner` < `amount of threads of your device`
-    #[structopt(short="threads", long="thread-per-miner", default_value = "4")]
+    /// `mining * thread-per-mining` < `amount of threads of your device`
+    #[structopt(short="threads", long="thread-per-mining", default_value = "4")]
     #[structopt(verbatim_doc_comment)]
     threads: u8,
 }

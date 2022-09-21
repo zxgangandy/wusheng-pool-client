@@ -25,20 +25,20 @@ pub struct Cmd {
     pool_server: SocketAddr,
 
     /// max_core is the count of the thread pool used to calculate proof
-    #[structopt(short="c", long="core", default_value = "1")]
-    max_core: u8,
+    #[structopt(short="n", long="num_miner", default_value = "1")]
+    num_miner: u8,
 
-    /// Number of threads that every thread pool will use
-    /// It is recommended to ensure
-    /// `max_core * threads` < `amount of threads of your device`
-    #[structopt(short="n", long="threads")]
-    #[structopt(verbatim_doc_comment)]
-    threads: Option<u8>,
+    // /// Number of threads that every thread pool will use
+    // /// It is recommended to ensure
+    // /// `max_core * threads` < `amount of threads of your device`
+    // #[structopt(short="n", long="threads")]
+    // #[structopt(verbatim_doc_comment)]
+    // threads: Option<u16>,
 }
 
 impl Cmd {
     pub async fn run(&self) -> Result<()> {
-        let threads = self.threads.unwrap_or(num_cpus::get() as u8);
+        //let threads = self.threads.unwrap_or(num_cpus::get() as u16);
         self.run_client().await?;
 
 
