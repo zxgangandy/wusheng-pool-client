@@ -45,5 +45,6 @@ async fn main() -> Result<()>{
         process::exit(1);
     }
 
+    std::future::pending::<()>().await;
     Ok(())
 }

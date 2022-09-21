@@ -32,9 +32,8 @@ impl Stats {
         }
     }
 
-    pub fn update_total_proofs(&self)-> Result<()> {
+    pub fn update_total_proofs(&self) {
         self.total_proofs.fetch_add(1, Ordering::SeqCst);
-        Ok(())
     }
 
     /// start calculator

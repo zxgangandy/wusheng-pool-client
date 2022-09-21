@@ -10,7 +10,6 @@ use tokio::{
 use tokio_util::codec::Framed;
 use futures_util::sink::SinkExt;
 use tokio_stream::StreamExt;
-//use snarkvm::dpc::testnet2::Testnet2;
 use snarkvm::prelude::Address;
 use log::{error, info};
 use anyhow::Result;

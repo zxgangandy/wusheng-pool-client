@@ -1,5 +1,6 @@
 use std::{future, net::SocketAddr};
 use std::str::FromStr;
+use std::sync::atomic::AtomicBool;
 use log::{info, error};
 use structopt::StructOpt;
 use anyhow::Result;
@@ -19,17 +20,17 @@ pub struct Cmd {
     /// The miner address (aleo1...)
     address: String,
 
-    #[structopt(short="s", long="pool-server")]
+    #[structopt(short="server", long="pool-server")]
     /// Ip:port of the pool server
     pool_server: SocketAddr,
 
-    // /// Worker is a thread pool used to calculate proof
-    // #[structopt(short="w", long="worker", default_value = "1")]
-    // worker: u8,
+    /// pool is a thread pool used to calculate proof
+    #[structopt(short="p", long="pool", default_value = "1")]
+    pool: u8,
 
     /// Number of threads that every miner will use
     /// It is recommended to ensure
-    /// `miner * thread-per-miner` < `amount of threads of your device`
+    /// `pool * threads` < `amount of threads of your device`
     #[structopt(short="t", long="threads", default_value = "4")]
     #[structopt(verbatim_doc_comment)]
     threads: u8,
@@ -39,7 +40,7 @@ impl Cmd {
     pub async fn run(&self) -> Result<()> {
         self.run_client().await?;
 
-        std::future::pending::<()>().await;
+
         Ok(())
     }
 
