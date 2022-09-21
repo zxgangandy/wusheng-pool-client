@@ -13,7 +13,7 @@ use tokio::task;
 
 use crate::mining::miner::MinerEvent;
 use crate::mining::MiningEvent;
-use crate::stats::Stats;
+use crate::stats::{Stats, StatsEvent};
 use crate::stratum::protocol::StratumProtocol;
 
 pub struct Manager {
@@ -133,13 +133,15 @@ impl Manager {
                     worker.try_send(MinerEvent::NewWork(0, Some("NewWork".to_string())))?;
                 }
             }
-            MiningEvent::SubmitResult(..) => {
-                if let Err(err) = statistic_router.try_send(StatisticMsg::SubmitResult(valid, msg)) {
-                    error!("failed to send submit result to statistic mod: {err}");
+            MiningEvent::SubmitResult(valid, msg) => {
+                if let Err(err) = self.stats.sender().try_send(
+                    StatsEvent::SubmitResult(valid, msg)
+                ) {
+                    error!("Failed to send submit result to stats: {err}");
                 }
             }
             _ => {
-                warn!("unexpected msg");
+                warn!("Unexpected msg");
             }
         }
 
