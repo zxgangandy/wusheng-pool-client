@@ -112,8 +112,8 @@ impl Manager {
             while let Some(msg) = rx.recv().await {
                 match msg {
                     MiningEvent::Exit(responder) => {
-                        if let Err(err) = self.exit(&client_router, &statistic_router).await {
-                            error!("failed to exit: {err}");
+                        if let Err(err) = self.exit().await {
+                            error!("Failed to exit: {err}");
                             // grace exit failed, force exit
                             process::exit(1);
                         }
@@ -152,7 +152,7 @@ impl Manager {
         Ok(())
     }
 
-    async fn exit(&mut self, client_router: &Sender<ClientMsg>, statistic_router: &Sender<StatisticMsg>) -> Result<()> {
+    async fn exit(&mut self, ) -> Result<()> {
         let (tx, rx) = oneshot::channel();
         client_router.send(ClientMsg::Exit(tx)).await.context("client")?;
         rx.await.context("failed to get exit response of client")?;
