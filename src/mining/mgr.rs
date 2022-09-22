@@ -7,13 +7,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use anyhow::{Context, ensure, Result};
 use anyhow::{anyhow, bail};
 use snarkvm::prelude::Address;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
 use crate::mining::miner::MinerEvent;
 use crate::mining::MiningEvent;
-use crate::mining::stats::Stats;
+use crate::mining::stats::{Stats, StatsEvent};
 use crate::stats::{Stats, StatsEvent};
 use crate::stratum::message::StratumMessage;
 use crate::utils::sender::Wrapper;
@@ -21,6 +21,8 @@ use crate::utils::sender::Wrapper;
 pub struct Manager {
     running: AtomicBool,
     workers: Vec<Sender<MinerEvent>>,
+    mgr_sender: Sender<MiningEvent>,
+    mgr_receiver: Receiver<MiningEvent>,
     stats: Arc<Stats>,
     wrapper: Arc<Wrapper>,
 }
@@ -28,9 +30,13 @@ pub struct Manager {
 impl Manager {
 
     pub fn new(wrapper: Arc<Wrapper>, ) -> Self {
+        let (mgr_sender, mgr_receiver) = channel::<MiningEvent>(256);
+
         Self {
             running: AtomicBool::new(false),
             workers: vec![],
+            mgr_sender,
+            mgr_receiver,
             stats: Arc::new(Stats::new()),
             wrapper,
         }
@@ -38,12 +44,11 @@ impl Manager {
 
     pub async fn stop(&self) {
         if self.running() {
-            // let sender = self.prover_router.read().await;
-            // let (tx, rx) = oneshot::channel();
-            // if let Err(err) = sender.send(ProverMsg::Exit(tx)).await {
-            //     error!("failed to stop prover: {err}");
-            // }
-            // rx.await.unwrap();
+            let (tx, rx) = oneshot::channel();
+            if let Err(err) = self.mgr_sender.send(MiningEvent::Exit(tx)).await {
+                error!("failed to stop prover: {err}");
+            }
+            rx.await.unwrap();
             info!("prover exited");
             self.running.store(false, Ordering::SeqCst);
         }
@@ -54,13 +59,12 @@ impl Manager {
         pool_ip: SocketAddr,
         num_miner: u8,
         thread_per_worker: u8,
-        name: String,
         address: impl ToString,
     ) -> Result<()> {
         let address = Address::from_str(&address.to_string()).context("invalid aleo address")?;
         ensure!(!self.running(), "prover is already running");
 
-        let router = self._start_cpu(worker, thread_per_worker, address, name, pool_ip).await?;
+        let router = self._start_cpu(worker, thread_per_worker, address, pool_ip).await?;
         self.running.store(true, Ordering::SeqCst);
         let mut prover_router = self.prover_router.write().await;
         *prover_router = router;
@@ -73,10 +77,9 @@ impl Manager {
         num_miner: u8,
         thread_per_worker: u8,
         address: Address<Testnet2>,
-        name: String,
         pool_ip: SocketAddr,
     ) -> Result<Sender<ProverMsg>> {
-        let (mgr_sender, rx) = mpsc::channel(256);
+        //let (mgr_sender, rx) = mpsc::channel(256);
         //let client_router = Client::start(pool_ip, prover_router.clone(), name, address);
         //let statistic_router = Statistic::start(client_router.clone());
         for _ in 0..num_miner {
