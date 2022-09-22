@@ -14,7 +14,7 @@ use tokio::task;
 use crate::mining::miner::MinerEvent;
 use crate::mining::MiningEvent;
 use crate::stats::{Stats, StatsEvent};
-use crate::stratum::protocol::StratumProtocol;
+use crate::stratum::message::StratumMessage;
 
 pub struct Manager {
     running: AtomicBool,

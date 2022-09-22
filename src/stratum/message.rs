@@ -4,7 +4,7 @@ use erased_serde::Serialize as ErasedSerialize;
 
 
 /// Miner and pool server communication protocol
-pub enum StratumProtocol {
+pub enum StratumMessage {
     /// (id, user_agent, protocol_version, session_id)
     Subscribe(Id, String, String, Option<String>),
 
@@ -13,7 +13,7 @@ pub enum StratumProtocol {
 
     /// This is the difficulty target for the next job.
     /// (difficulty_target)
-    SetTarget(u64),
+    SetDifficulty(u64),
 
     /// New job from the mining pool.
     /// (job_id, block_header_root, hashed_leaves_1, hashed_leaves_2, hashed_leaves_3,
@@ -28,15 +28,15 @@ pub enum StratumProtocol {
     Response(Id, Option<ResponseParams>, Option<Error<()>>),
 }
 
-impl StratumProtocol {
+impl StratumMessage {
     pub fn name(&self) -> &'static str {
         match self {
-            StratumProtocol::Subscribe(..) => "mining.subscribe",
-            StratumProtocol::Authorize(..) => "mining.authorize",
-            StratumProtocol::SetTarget(..) => "mining.set_target",
-            StratumProtocol::Notify(..) => "mining.notify",
-            StratumProtocol::Submit(..) => "mining.submit",
-            StratumProtocol::Response(..) => "mining.response",
+            StratumMessage::Subscribe(..) => "mining.subscribe",
+            StratumMessage::Authorize(..) => "mining.authorize",
+            StratumMessage::SetDifficulty(..) => "mining.set_difficulty",
+            StratumMessage::Notify(..) => "mining.notify",
+            StratumMessage::Submit(..) => "mining.submit",
+            StratumMessage::Response(..) => "mining.response",
         }
     }
 }

@@ -16,7 +16,7 @@ use log::{error, info};
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use crate::stratum::codec::StratumCodec;
-use crate::stratum::protocol::StratumProtocol;
+use crate::stratum::message::StratumMessage;
 
 pub struct SubscribeHandler;
 
@@ -41,7 +41,7 @@ impl SubscribeHandler {
         framed: &mut Framed<TcpStream, StratumCodec>
     )-> Result<()> {
         info!("[start send subscribe request]");
-        if let Err(error) = framed.send(StratumProtocol::Subscribe(
+        if let Err(error) = framed.send(StratumMessage::Subscribe(
             Id::Num(0),
             format!("client/{}", env!("CARGO_PKG_VERSION")),
             "AleoStratum/1.0.0".to_string(),
@@ -61,7 +61,7 @@ impl SubscribeHandler {
         match framed.next().await {
             Some(response) => match response {
                 Ok(message) => match message {
-                    StratumProtocol::Response(_id, _result, error) => {
+                    StratumMessage::Response(_id, _result, error) => {
                         if !error.is_none() {
                             return Err(anyhow!("Response with error {}", error.unwrap().message));
                         } else {

@@ -17,26 +17,32 @@ use anyhow::{anyhow, bail};
 use tokio_util::codec::Framed;
 use futures_util::sink::SinkExt;
 use snarkvm::utilities::error;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio_stream::StreamExt;
 use crate::stratum::codec::StratumCodec;
 use authorize::AuthorizeHandler;
 use subscribe::SubscribeHandler;
 use crate::mining::MiningEvent;
-use crate::stratum::protocol::StratumProtocol;
+use crate::stratum::message::StratumMessage;
 
 #[derive(Debug)]
 pub struct Handler {
     pub framed: Framed<TcpStream, StratumCodec>,
     pub address: String,
-
-    StratumProtocol
+    pub handler_sender: Sender<StratumMessage>,
+    pub handler_receiver: Receiver<StratumMessage>,
 }
 
 impl Handler {
 
     pub fn new(framed: Framed<TcpStream, StratumCodec>, address: &String)-> Self {
-        return Handler{ framed, address: address.clone()}
+        let (handler_sender, mut handler_receiver) = channel::<StratumMessage>(1024);
+        return Handler {
+            framed,
+            address: address.clone(),
+            handler_sender,
+            handler_receiver,
+        };
     }
 
     /// handler run
@@ -60,10 +66,9 @@ impl Handler {
         }
 
         let framed = &mut self.framed;
-        let (net_router, mut net_handler) = mpsc::channel::<StratumProtocol>(1024);
         loop {
             tokio::select! {
-                Some(message) = net_handler.recv() => {
+                Some(message) = self.handler_receiver.recv() => {
                     let name = message.name();
                     if let Err(e) = framed.send(message).await {
                         error!("Client send failed {}: {:?}", name, e);
@@ -88,14 +93,14 @@ impl Handler {
     }
 
     async fn process_mining_message(
-        message: StratumProtocol,
+        message: StratumMessage,
         mgr_sender: Sender<MiningEvent>,
     ) -> Result<()> {
         match message {
-            StratumProtocol::Response(_, result, error) => {
+            StratumMessage::Response(_, result, error) => {
                 info!("Client received response message");
             }
-            StratumProtocol::Notify(
+            StratumMessage::Notify(
                 job_id,
                 block_header_root,
                 hashed_leaves_1,
@@ -110,7 +115,7 @@ impl Handler {
                     .await
                     .context("failed to send notify to miner manager")?;
             }
-            StratumProtocol::SetTarget(difficulty_target) => {
+            StratumMessage::SetTarget(difficulty_target) => {
                 info!("Client received set target message");
             }
             _ => {

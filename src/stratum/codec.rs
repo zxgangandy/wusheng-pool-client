@@ -6,7 +6,7 @@ use serde::{Deserialize, Serializer, Deserializer};
 use serde::ser::{Serialize, SerializeSeq};
 use tokio_util::codec::{AnyDelimiterCodec, Decoder, Encoder};
 use erased_serde::Serialize as ErasedSerialize;
-use crate::stratum::protocol::*;
+use crate::stratum::message::*;
 
 #[derive(Debug)]
 pub struct StratumCodec {
@@ -21,12 +21,12 @@ impl Default for StratumCodec {
     }
 }
 
-impl Encoder<StratumProtocol> for StratumCodec {
+impl Encoder<StratumMessage> for StratumCodec {
     type Error = io::Error;
 
-    fn encode(&mut self, item: StratumProtocol, dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, item: StratumMessage, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let bytes = match item {
-            StratumProtocol::Subscribe(id, user_agent, protocol_version, session_id) => {
+            StratumMessage::Subscribe(id, user_agent, protocol_version, session_id) => {
                 let request = Request {
                     jsonrpc: Version::V2,
                     method: "mining.subscribe",
@@ -35,7 +35,7 @@ impl Encoder<StratumProtocol> for StratumCodec {
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
             }
-            StratumProtocol::Authorize(id, worker_name, worker_password) => {
+            StratumMessage::Authorize(id, worker_name, worker_password) => {
                 let request = Request {
                     jsonrpc: Version::V2,
                     method: "mining.authorize",
@@ -44,16 +44,16 @@ impl Encoder<StratumProtocol> for StratumCodec {
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
             }
-            StratumProtocol::SetTarget(difficulty_target) => {
+            StratumMessage::SetDifficulty(difficulty_target) => {
                 let request = Request {
                     jsonrpc: Version::V2,
-                    method: "mining.set_target",
+                    method: "mining.set_difficulty",
                     params: Some(vec![difficulty_target]),
                     id: None,
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
             }
-            StratumProtocol::Notify(
+            StratumMessage::Notify(
                 job_id,
                 block_header_root,
                 hashed_leaves_1,
@@ -78,7 +78,7 @@ impl Encoder<StratumProtocol> for StratumCodec {
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
             }
-            StratumProtocol::Submit(id, worker_name, job_id, nonce, proof) => {
+            StratumMessage::Submit(id, worker_name, job_id, nonce, proof) => {
                 let request = Request {
                     jsonrpc: Version::V2,
                     method: "mining.submit",
@@ -87,7 +87,7 @@ impl Encoder<StratumProtocol> for StratumCodec {
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
             }
-            StratumProtocol::Response(id, result, error) => match error {
+            StratumMessage::Response(id, result, error) => match error {
                 Some(error) => {
                     let response = Response::<(), ()>::error(Version::V2, error, Some(id));
                     serde_json::to_vec(&response).unwrap_or_default()
@@ -112,7 +112,7 @@ impl Encoder<StratumProtocol> for StratumCodec {
 }
 
 impl Decoder for StratumCodec {
-    type Item = StratumProtocol;
+    type Item = StratumMessage;
     type Error = io::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -157,7 +157,7 @@ impl Decoder for StratumCodec {
                             ))
                         }
                     };
-                    StratumProtocol::Subscribe(
+                    StratumMessage::Subscribe(
                         id.unwrap_or(Id::Num(0)),
                         user_agent,
                         protocol_version,
@@ -170,18 +170,18 @@ impl Decoder for StratumCodec {
                     }
                     let miner_name = unwrap_str_value(&params[0])?;
                     let worker_password = unwrap_str_value(&params[1])?;
-                    StratumProtocol::Authorize(
+                    StratumMessage::Authorize(
                         id.unwrap_or(Id::Num(0)),
                         miner_name,
                         worker_password,
                     )
                 }
-                "mining.set_target" => {
+                "mining.set_difficulty" => {
                     if params.len() != 1 {
                         return Err(io::Error::new(io::ErrorKind::InvalidData, "Invalid params"));
                     }
                     let difficulty_target = unwrap_u64_value(&params[0])?;
-                    StratumProtocol::SetTarget(difficulty_target)
+                    StratumMessage::SetDifficulty(difficulty_target)
                 }
                 "mining.notify" => {
                     if params.len() != 7 {
@@ -195,7 +195,7 @@ impl Decoder for StratumCodec {
                     let hashed_leaves_4 = unwrap_str_value(&params[5])?;
                     let clean_jobs = unwrap_bool_value(&params[6])?;
 
-                    StratumProtocol::Notify(
+                    StratumMessage::Notify(
                         job_id,
                         block_header_root,
                         hashed_leaves_1,
@@ -215,7 +215,7 @@ impl Decoder for StratumCodec {
                     let nonce = unwrap_str_value(&params[2])?;
                     let proof = unwrap_str_value(&params[3])?;
 
-                    StratumProtocol::Submit(id.unwrap_or(Id::Num(0)), worker_name, job_id, nonce, proof)
+                    StratumMessage::Submit(id.unwrap_or(Id::Num(0)), worker_name, job_id, nonce, proof)
                 }
                 _ => {
                     return Err(io::Error::new(io::ErrorKind::InvalidData, "Unknown method"));
@@ -227,9 +227,9 @@ impl Decoder for StratumCodec {
             let id = response.id;
             match response.payload {
                 Ok(payload) => {
-                    StratumProtocol::Response(id.unwrap_or(Id::Num(0)), Some(payload), None)
+                    StratumMessage::Response(id.unwrap_or(Id::Num(0)), Some(payload), None)
                 }
-                Err(error) => StratumProtocol::Response(id.unwrap_or(Id::Num(0)), None, Some(error)),
+                Err(error) => StratumMessage::Response(id.unwrap_or(Id::Num(0)), None, Some(error)),
             }
         };
         Ok(Some(result))

@@ -7,7 +7,7 @@ use tokio::net::TcpStream;
 use futures_util::sink::SinkExt;
 use tokio_stream::StreamExt;
 use crate::stratum::codec::StratumCodec;
-use crate::stratum::protocol::StratumProtocol;
+use crate::stratum::message::StratumMessage;
 
 pub struct AuthorizeHandler;
 
@@ -36,7 +36,7 @@ impl AuthorizeHandler {
         address: &String
     )-> Result<()> {
         let mut id = 1;
-        let authorization = StratumProtocol::Authorize(
+        let authorization = StratumMessage::Authorize(
             Id::Num(id),
             address.clone(),
             "".to_string()
@@ -56,7 +56,7 @@ impl AuthorizeHandler {
                 return Err(anyhow!("Unexpected end of stream"));
             }
             Some(Ok(message)) => match message {
-                StratumProtocol::Response(_, _, _) => {
+                StratumMessage::Response(_, _, _) => {
                     info!("Authorization successful");
                 }
                 _ => {

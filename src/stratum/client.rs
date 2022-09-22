@@ -19,7 +19,7 @@ use tokio::sync::mpsc::Sender;
 use crate::mining::MiningEvent;
 use crate::stratum::codec::StratumCodec;
 use crate::stratum::handler::Handler;
-use crate::stratum::protocol::StratumProtocol;
+use crate::stratum::message::StratumMessage;
 
 pub struct Client{
     pool_server: SocketAddr,
@@ -45,8 +45,8 @@ impl Client {
     /// Preconditions: Client connected the pool server, then handler start to run.
     ///
     ///
-    pub async fn start(&self) -> Result<Sender<StratumProtocol>>  {
-        let (handler_sender, mut handler_rx) = mpsc::channel::<StratumProtocol>(1024);
+    pub async fn start(&self) -> Result<Sender<StratumMessage>>  {
+        let (handler_sender, mut handler_rx) = mpsc::channel::<StratumMessage>(1024);
 
         task::spawn( async move {
             loop {
