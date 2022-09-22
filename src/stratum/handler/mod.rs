@@ -3,8 +3,9 @@
 pub mod subscribe;
 pub mod authorize;
 pub mod notify;
-pub mod set_target;
+pub mod set_difficulty;
 
+use std::sync::Arc;
 use tokio::{
     net::TcpStream,
     task,
@@ -24,6 +25,7 @@ use authorize::AuthorizeHandler;
 use subscribe::SubscribeHandler;
 use crate::mining::MiningEvent;
 use crate::stratum::message::StratumMessage;
+use crate::utils::sender::Wrapper;
 
 #[derive(Debug)]
 pub struct Handler {
@@ -31,17 +33,25 @@ pub struct Handler {
     pub address: String,
     pub handler_sender: Sender<StratumMessage>,
     pub handler_receiver: Receiver<StratumMessage>,
+    pub wrapper: Arc<Wrapper>,
 }
 
 impl Handler {
 
-    pub fn new(framed: Framed<TcpStream, StratumCodec>, address: &String)-> Self {
+    pub fn new(
+        framed: Framed<TcpStream, StratumCodec>,
+        address: &String,
+        mut wrapper: Arc<Wrapper>
+    ) -> Self {
         let (handler_sender, mut handler_receiver) = channel::<StratumMessage>(1024);
+        wrapper.set_handler_sender(handler_sender.clone());
+
         return Handler {
             framed,
             address: address.clone(),
             handler_sender,
             handler_receiver,
+            wrapper
         };
     }
 
@@ -92,10 +102,7 @@ impl Handler {
         }
     }
 
-    async fn process_mining_message(
-        message: StratumMessage,
-        mgr_sender: Sender<MiningEvent>,
-    ) -> Result<()> {
+    async fn process_mining_message(&self, message: StratumMessage, ) -> Result<()> {
         match message {
             StratumMessage::Response(_, result, error) => {
                 info!("Client received response message");
@@ -110,7 +117,8 @@ impl Handler {
                 _
             ) => {
                 info!("Client received notify message");
-                mgr_sender
+                self.wrapper
+                    .mgr_sender()
                     .send(MiningEvent::NewWork(0, Some("NewWork".to_string())))
                     .await
                     .context("failed to send notify to miner manager")?;

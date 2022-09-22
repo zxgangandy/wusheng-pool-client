@@ -12,6 +12,7 @@ use tokio::task;
 
 use crate::stratum::client;
 use crate::stratum::client::Client;
+use crate::utils::sender::Wrapper;
 
 #[derive(Debug, StructOpt)]
 /// CPU mining command will use cups of devices to mine the proof.
@@ -39,8 +40,13 @@ pub struct Cmd {
 impl Cmd {
     pub async fn run(&self) -> Result<()> {
         //let threads = self.threads.unwrap_or(num_cpus::get() as u16);
-        self.run_client().await?;
+        //self.run_client().await?;
+        let mut wrapper = Wrapper::new();
 
+        let client = Client::new(pool_server, address);
+        if let Err(error) = client.start(wrapper).await {
+            error!("[Stratum client start] error=> {}", error);
+        }
 
         Ok(())
     }

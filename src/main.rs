@@ -1,8 +1,8 @@
 mod stratum;
 mod cmd;
 mod mining;
-mod stats;
 mod account;
+mod utils;
 
 use std::process;
 use structopt::StructOpt;

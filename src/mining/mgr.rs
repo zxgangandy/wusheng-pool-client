@@ -13,24 +13,26 @@ use tokio::task;
 
 use crate::mining::miner::MinerEvent;
 use crate::mining::MiningEvent;
+use crate::mining::stats::Stats;
 use crate::stats::{Stats, StatsEvent};
 use crate::stratum::message::StratumMessage;
+use crate::utils::sender::Wrapper;
 
 pub struct Manager {
     running: AtomicBool,
     workers: Vec<Sender<MinerEvent>>,
     stats: Arc<Stats>,
+    wrapper: Arc<Wrapper>,
 }
 
 impl Manager {
 
-    pub fn new() -> Self {
-        //let (tx, _) = mpsc::channel(1);
+    pub fn new(wrapper: Arc<Wrapper>, ) -> Self {
         Self {
             running: AtomicBool::new(false),
-            //prover_router: RwLock::new(tx),
             workers: vec![],
             stats: Arc::new(Stats::new()),
+            wrapper,
         }
     }
 

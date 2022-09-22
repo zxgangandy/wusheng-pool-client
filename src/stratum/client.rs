@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use json_rpc_types::Id;
@@ -20,23 +21,18 @@ use crate::mining::MiningEvent;
 use crate::stratum::codec::StratumCodec;
 use crate::stratum::handler::Handler;
 use crate::stratum::message::StratumMessage;
+use crate::utils::sender::Wrapper;
 
 pub struct Client{
     pool_server: SocketAddr,
     miner_address: String,
-    mgr_sender: Sender<MiningEvent>,
 }
 
 impl Client {
-    pub fn new(
-        pool_server: SocketAddr,
-        miner_address: String,
-        mgr_sender: Sender<MiningEvent>
-    ) -> Self {
+    pub fn new(pool_server: SocketAddr, miner_address: String, ) -> Self {
         Client {
             pool_server,
             miner_address,
-            mgr_sender,
         }
     }
 
@@ -45,15 +41,14 @@ impl Client {
     /// Preconditions: Client connected the pool server, then handler start to run.
     ///
     ///
-    pub async fn start(&self) -> Result<Sender<StratumMessage>>  {
-        let (handler_sender, mut handler_rx) = mpsc::channel::<StratumMessage>(1024);
+    pub fn start(&self, mut wrapper: Arc<Wrapper>) -> Result<()>  {
 
         task::spawn( async move {
             loop {
                 let stream = self.connect_to_pool_server(&self.pool_server).await?;
                 let mut framed = Framed::new(stream, StratumCodec::default());
 
-                let mut handler = Handler::new(framed, &self.miner_address);
+                let mut handler = Handler::new(framed, &self.miner_address, wrapper.clone());
                 if let Err(error) = handler.run(self.mgr_sender.clone()).await {
                     error!("[Client handler] {}", error);
                     sleep(Duration::from_secs(5)).await;
@@ -62,7 +57,7 @@ impl Client {
             }
         });
 
-        Ok(handler_sender)
+        Ok(())
     }
 
 
