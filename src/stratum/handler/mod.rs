@@ -12,21 +12,25 @@ use tokio::{
     time::{sleep, timeout},
 };
 use log::{error, info};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use anyhow::{anyhow, bail};
 use tokio_util::codec::Framed;
 use futures_util::sink::SinkExt;
 use snarkvm::utilities::error;
+use tokio::sync::mpsc::Sender;
 use tokio_stream::StreamExt;
 use crate::stratum::codec::StratumCodec;
 use authorize::AuthorizeHandler;
 use subscribe::SubscribeHandler;
+use crate::mining::MiningEvent;
 use crate::stratum::protocol::StratumProtocol;
 
 #[derive(Debug)]
 pub struct Handler {
     pub framed: Framed<TcpStream, StratumCodec>,
     pub address: String,
+
+    StratumProtocol
 }
 
 impl Handler {
@@ -44,7 +48,7 @@ impl Handler {
     /// Step 2:
     /// Client will send 'authorize' request message to the stratum server,
     /// then the stratum server send back 'authorize' response;
-    pub async fn run(&mut self) -> Result<()> {
+    pub async fn run(&mut self, mgr_sender: Sender<MiningEvent>,) -> Result<()> {
         if let Err(error) = SubscribeHandler::exec(&mut self.framed).await {
             error!("[Subscribe handler apply failed] {}", error);
             return Err(anyhow!(error));
@@ -68,7 +72,7 @@ impl Handler {
                 }
                 result = framed.next() => match result {
                     Some(Ok(message)) => {
-                        Handler::process_mining_message(message).await?;
+                        Self::process_mining_message(message, mgr_sender).await?;
                     }
                     Some(Err(e)) => {
                         error!("Client failed to read the message: {:?}", e);
@@ -83,7 +87,10 @@ impl Handler {
         }
     }
 
-    async fn process_mining_message(message: StratumProtocol) -> Result<()> {
+    async fn process_mining_message(
+        message: StratumProtocol,
+        mgr_sender: Sender<MiningEvent>,
+    ) -> Result<()> {
         match message {
             StratumProtocol::Response(_, result, error) => {
                 info!("Client received response message");
@@ -98,6 +105,10 @@ impl Handler {
                 _
             ) => {
                 info!("Client received notify message");
+                mgr_sender
+                    .send(MiningEvent::NewWork(0, Some("NewWork".to_string())))
+                    .await
+                    .context("failed to send notify to miner manager")?;
             }
             StratumProtocol::SetTarget(difficulty_target) => {
                 info!("Client received set target message");

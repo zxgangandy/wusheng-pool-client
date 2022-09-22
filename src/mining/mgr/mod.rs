@@ -8,7 +8,7 @@ use anyhow::{Context, ensure, Result};
 use anyhow::{anyhow, bail};
 use snarkvm::prelude::Address;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
 use crate::mining::miner::MinerEvent;
@@ -74,7 +74,7 @@ impl Manager {
         name: String,
         pool_ip: SocketAddr,
     ) -> Result<Sender<ProverMsg>> {
-        //let (prover_router, rx) = mpsc::channel(100);
+        let (mgr_sender, rx) = mpsc::channel(256);
         //let client_router = Client::start(pool_ip, prover_router.clone(), name, address);
         //let statistic_router = Statistic::start(client_router.clone());
         for _ in 0..num_miner {
@@ -117,7 +117,7 @@ impl Manager {
                     }
                     _ => {
                         if let Err(err) = self.process_msg(msg) {
-                            error!("prover failed to process message: {err}");
+                            error!("Miner manager failed to process message: {err}");
                         }
                     }
                 }
