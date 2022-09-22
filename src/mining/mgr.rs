@@ -97,19 +97,15 @@ impl Manager {
             thread_per_worker
         );
 
-        self.serve(rx, client_router);
+        self.serve();
         info!("prover-cpu started");
         Ok(prover_router)
     }
 
 
-    fn serve(
-        mut self,
-        mut rx: Receiver<ProverMsg>,
-        client_router: Sender<ClientMsg>,
-    ) {
+    fn serve(mut self, ) {
         task::spawn(async move {
-            while let Some(msg) = rx.recv().await {
+            while let Some(msg) = self.mgr_receiver.recv().await {
                 match msg {
                     MiningEvent::Exit(responder) => {
                         if let Err(err) = self.exit().await {
@@ -171,5 +167,4 @@ impl Manager {
         rx.await.context("failed to get exit response of statistic mod")?;
         Ok(())
     }
-
 }
