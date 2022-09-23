@@ -21,6 +21,7 @@ use tokio::{
 };
 use tokio::sync::{mpsc, oneshot};
 use tokio::sync::mpsc::Sender;
+use crate::mining::stats::Stats;
 use crate::stats::Stats;
 
 
@@ -28,7 +29,8 @@ pub struct Miner {
     pool: ThreadPool,
     //total_proofs: Arc<AtomicU32>,
     //running: AtomicBool,
-    stats: Stats,
+    //stats: Stats,
+    stats: Arc<Stats>,
 }
 
 #[derive(Debug)]
@@ -39,7 +41,7 @@ pub enum MinerEvent {
 
 
 impl Miner {
-    pub fn new(index: u8, threads: u16,) -> Self {
+    pub fn new(index: u8, threads: u16, stats: Arc<Stats>,) -> Self {
         //let core_threads = num_cpus::get() as u16 / max_core;
 
         // for index in 0..max_core {
@@ -61,7 +63,8 @@ impl Miner {
             pool,
             //total_proofs: Arc::new(Default::default()),
             //running: AtomicBool::new(false),
-            stats: Stats::new(),
+            //stats: Stats::new(),
+            stats,
         }
     }
 
@@ -141,7 +144,7 @@ impl Miner {
 
             while !terminator.load(Ordering::SeqCst) {
                 info!("Miner is mining now");
-                miner.stats.update_total_proofs();
+                //miner.stats.update_total_proofs();
             }
             debug!("block {} terminated", height);
             ready.store(true, Ordering::SeqCst);

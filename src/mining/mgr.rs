@@ -11,12 +11,12 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
-use crate::mining::miner::MinerEvent;
+use crate::mining::miner::{Miner, MinerEvent};
 use crate::mining::MiningEvent;
 use crate::mining::stats::{Stats, StatsEvent};
 use crate::stats::{Stats, StatsEvent};
 use crate::stratum::message::StratumMessage;
-use crate::utils::sender::Wrapper;
+use crate::utils::sender;
 
 pub struct Manager {
     running: AtomicBool,
@@ -24,12 +24,12 @@ pub struct Manager {
     mgr_sender: Sender<MiningEvent>,
     mgr_receiver: Receiver<MiningEvent>,
     stats: Arc<Stats>,
-    wrapper: Arc<Wrapper>,
+    wrapper: Arc<sender::Wrapper>,
 }
 
 impl Manager {
 
-    pub fn new(wrapper: Arc<Wrapper>, ) -> Self {
+    pub fn new(wrapper: Arc<sender::Wrapper>, ) -> Self {
         let (mgr_sender, mgr_receiver) = channel::<MiningEvent>(256);
 
         Self {
@@ -82,13 +82,15 @@ impl Manager {
         //let (mgr_sender, rx) = mpsc::channel(256);
         //let client_router = Client::start(pool_ip, prover_router.clone(), name, address);
         //let statistic_router = Statistic::start(client_router.clone());
-        for _ in 0..num_miner {
-            self.workers.push(Worker::start_cpu(
-                prover_router.clone(),
-                statistic_router.clone(),
-                client_router.clone(),
-                thread_per_worker,
-            ));
+        for index in 0..num_miner {
+            // self.workers.push(Worker::start_cpu(
+            //     prover_router.clone(),
+            //     statistic_router.clone(),
+            //     client_router.clone(),
+            //     thread_per_worker,
+            // ));
+
+            let miner = Miner::new(index, n, self.stats.clone());
         }
 
         info!(
