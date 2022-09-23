@@ -90,7 +90,9 @@ impl Manager {
             //     thread_per_worker,
             // ));
 
-            let miner = Miner::new(index, n, self.stats.clone());
+            let mut miner = Miner::new(index, n, self.stats.clone());
+            self.workers.push(miner.miner_sender());
+            miner.start();
         }
 
         info!(

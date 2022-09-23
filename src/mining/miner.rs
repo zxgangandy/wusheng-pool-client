@@ -20,7 +20,7 @@ use tokio::{
     sync::{mpsc::channel},
 };
 use tokio::sync::{mpsc, oneshot};
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{Receiver, Sender};
 use crate::mining::stats::Stats;
 use crate::stats::Stats;
 
@@ -30,6 +30,8 @@ pub struct Miner {
     //total_proofs: Arc<AtomicU32>,
     //running: AtomicBool,
     //stats: Stats,
+    miner_sender: Sender<MinerEvent>,
+    miner_receiver: Receiver<MinerEvent>,
     stats: Arc<Stats>,
 }
 
@@ -43,7 +45,7 @@ pub enum MinerEvent {
 impl Miner {
     pub fn new(index: u8, threads: u16, stats: Arc<Stats>,) -> Self {
         //let core_threads = num_cpus::get() as u16 / max_core;
-
+        let (miner_sender, miner_receiver) = channel::<MinerEvent>(256);
         // for index in 0..max_core {
         //     let pool = ThreadPoolBuilder::new()
         //         .stack_size(8 * 1024 * 1024)
@@ -64,8 +66,14 @@ impl Miner {
             //total_proofs: Arc::new(Default::default()),
             //running: AtomicBool::new(false),
             //stats: Stats::new(),
+            miner_sender,
+            miner_receiver,
             stats,
         }
+    }
+
+    pub fn miner_sender(&self) -> Sender<MinerEvent> {
+        self.miner_sender.clone()
     }
 
     fn running(&self) -> bool {
@@ -85,28 +93,28 @@ impl Miner {
         }
     }
 
-    fn _start(
-        prover_router: Sender<ProverMsg>,
-        statistic_router: Sender<StatisticMsg>,
-        client_router: Sender<ClientMsg>,
-        gpu_index: i16,
-        threads: u8,
-    ) -> Sender<WorkerMsg> {
-        let (tx, mut rx) = mpsc::channel(100);
-        let worker = Worker {
-            pool: ThreadPoolBuilder::new().num_threads(threads as usize).build().unwrap(),
-            terminator: Arc::new(AtomicBool::new(false)),
-            ready: Arc::new(AtomicBool::new(true)),
-            prover_router,
-            statistic_router,
-            client_router,
-        };
+    pub fn start(&mut self,
+             // prover_router: Sender<ProverMsg>,
+             // statistic_router: Sender<StatisticMsg>,
+             // client_router: Sender<ClientMsg>,
+             // gpu_index: i16,
+             // threads: u8,
+    )  {
+        // let (tx, mut rx) = mpsc::channel(100);
+        // let worker = Worker {
+        //     pool: ThreadPoolBuilder::new().num_threads(threads as usize).build().unwrap(),
+        //     terminator: Arc::new(AtomicBool::new(false)),
+        //     ready: Arc::new(AtomicBool::new(true)),
+        //     prover_router,
+        //     statistic_router,
+        //     client_router,
+        // };
 
         task::spawn(async move {
-            while let Some(msg) = rx.recv().await {
+            while let Some(msg) = self.miner_receiver.recv().await {
                 match msg {
-                    WorkerMsg::Notify(template, diff) => worker.new_work(template, diff, gpu_index).await,
-                    WorkerMsg::Exit(responder) => {
+                    MinerEvent::NewWork(template, diff) => worker.new_work(template, diff, gpu_index).await,
+                    MinerEvent::Exit(responder) => {
                         worker.wait_for_terminator();
                         responder.send(()).expect("failed response exit msg");
                         break;
@@ -114,7 +122,6 @@ impl Miner {
                 }
             }
         });
-        tx
     }
 
     fn wait_for_terminator(&self) {
