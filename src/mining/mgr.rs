@@ -56,18 +56,15 @@ impl Manager {
 
     pub async fn start_cpu(
         &self,
-        pool_ip: SocketAddr,
         num_miner: u8,
-        thread_per_worker: u8,
         address: impl ToString,
+        pool_ip: SocketAddr,
     ) -> Result<()> {
         let address = Address::from_str(&address.to_string()).context("invalid aleo address")?;
         ensure!(!self.running(), "prover is already running");
 
-        let router = self._start_cpu(worker, thread_per_worker, address, pool_ip).await?;
+        self._start_cpu(num_miner, address, pool_ip).await?;
         self.running.store(true, Ordering::SeqCst);
-        let mut prover_router = self.prover_router.write().await;
-        *prover_router = router;
         Ok(())
     }
 
@@ -75,35 +72,25 @@ impl Manager {
     async fn _start_cpu(
         mut self,
         num_miner: u8,
-        thread_per_worker: u8,
         address: Address<Testnet2>,
         pool_ip: SocketAddr,
-    ) -> Result<Sender<ProverMsg>> {
-        //let (mgr_sender, rx) = mpsc::channel(256);
-        //let client_router = Client::start(pool_ip, prover_router.clone(), name, address);
-        //let statistic_router = Statistic::start(client_router.clone());
+    ) -> Result<()> {
+        let threads = num_cpus::get() as u16 / num_miner;
         for index in 0..num_miner {
-            // self.workers.push(Worker::start_cpu(
-            //     prover_router.clone(),
-            //     statistic_router.clone(),
-            //     client_router.clone(),
-            //     thread_per_worker,
-            // ));
-
-            let mut miner = Miner::new(index, n, self.stats.clone());
+            let mut miner = Miner::new(index, threads, self.stats.clone());
             self.workers.push(miner.miner_sender());
             miner.start();
         }
 
         info!(
-            "created {} workers with {} threads each for the prover",
+            "Created {} miners with {} threads each for the miner manager",
             self.workers.len(),
             thread_per_worker
         );
 
         self.serve();
-        info!("prover-cpu started");
-        Ok(prover_router)
+        info!("start-cpu started");
+        Ok(())
     }
 
 

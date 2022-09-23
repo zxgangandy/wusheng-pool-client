@@ -38,7 +38,6 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<()> {
-        //let threads = self.threads.unwrap_or(num_cpus::get() as u16);
         let mut wrapper = sender::Wrapper::new();
 
         let client = Client::new(pool_server, address);
@@ -47,15 +46,14 @@ impl Cmd {
         }
 
         let mgr = Manager::new(wrapper);
-        if let Err(error) =  mgr.start_cpu().await {
+        if let Err(error) =  mgr.start_cpu(
+            self.num_miner,
+            self.address.clone(),
+            self.pool_server).await
+        {
             error!("[Mining manager start] error=> {}", error);
         }
 
         Ok(())
     }
-
-    // fn get_address<N>(&self, address: &String) -> Address<N> where N: Network {
-    //     let address = Address::<N>::from_str(address).unwrap();
-    //     return address;
-    // }
 }
