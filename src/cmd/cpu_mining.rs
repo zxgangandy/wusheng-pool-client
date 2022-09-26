@@ -11,7 +11,7 @@ use crate::mining::mgr::Manager;
 
 use crate::stratum::client;
 use crate::stratum::client::Client;
-use crate::utils::sender;
+use crate::utils::global;
 
 #[derive(Debug, StructOpt)]
 /// CPU mining command will use cups of devices to mine the proof.
@@ -38,7 +38,7 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<()> {
-        let mut wrapper = sender::Wrapper::new();
+        let mut wrapper = global::Senders::new();
 
         let client = Client::new(pool_server, address);
         if let Err(error) = client.start(wrapper.clone()).await {

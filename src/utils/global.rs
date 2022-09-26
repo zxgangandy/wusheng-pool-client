@@ -3,12 +3,12 @@ use tokio::sync::mpsc::Sender;
 use crate::mining::MiningEvent;
 use crate::stratum::message::StratumMessage;
 
-pub struct Wrapper {
+pub struct Senders {
     mgr_sender: Option<Sender<MiningEvent>>,
     handler_sender: Option<Sender<StratumMessage>>,
 }
 
-impl Wrapper {
+impl Senders {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             mgr_sender: None,

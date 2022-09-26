@@ -16,7 +16,7 @@ use crate::mining::MiningEvent;
 use crate::mining::stats::{Stats, StatsEvent};
 use crate::stats::{Stats, StatsEvent};
 use crate::stratum::message::StratumMessage;
-use crate::utils::sender;
+use crate::utils::global;
 
 pub struct Manager {
     running: AtomicBool,
@@ -24,12 +24,12 @@ pub struct Manager {
     mgr_sender: Sender<MiningEvent>,
     mgr_receiver: Receiver<MiningEvent>,
     stats: Arc<Stats>,
-    wrapper: Arc<sender::Wrapper>,
+    wrapper: Arc<global::Senders>,
 }
 
 impl Manager {
 
-    pub fn new(wrapper: Arc<sender::Wrapper>, ) -> Self {
+    pub fn new(wrapper: Arc<global::Senders>, ) -> Self {
         let (mgr_sender, mgr_receiver) = channel::<MiningEvent>(256);
 
         Self {

@@ -25,7 +25,7 @@ use authorize::AuthorizeHandler;
 use subscribe::SubscribeHandler;
 use crate::mining::MiningEvent;
 use crate::stratum::message::StratumMessage;
-use crate::utils::sender::Wrapper;
+use crate::utils::global::Senders;
 
 #[derive(Debug)]
 pub struct Handler {
@@ -33,7 +33,7 @@ pub struct Handler {
     pub address: String,
     pub handler_sender: Sender<StratumMessage>,
     pub handler_receiver: Receiver<StratumMessage>,
-    pub wrapper: Arc<Wrapper>,
+    pub wrapper: Arc<Senders>,
 }
 
 impl Handler {
@@ -41,7 +41,7 @@ impl Handler {
     pub fn new(
         framed: Framed<TcpStream, StratumCodec>,
         address: &String,
-        mut wrapper: Arc<Wrapper>
+        mut wrapper: Arc<Senders>
     ) -> Self {
         let (handler_sender, mut handler_receiver) = channel::<StratumMessage>(1024);
         wrapper.set_handler_sender(handler_sender.clone());

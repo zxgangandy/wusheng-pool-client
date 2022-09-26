@@ -21,7 +21,7 @@ use crate::mining::MiningEvent;
 use crate::stratum::codec::StratumCodec;
 use crate::stratum::handler::Handler;
 use crate::stratum::message::StratumMessage;
-use crate::utils::sender::Wrapper;
+use crate::utils::global::Senders;
 
 pub struct Client{
     pool_server: SocketAddr,
@@ -36,12 +36,11 @@ impl Client {
         }
     }
 
-    /// Start the stratum client
+    /// Start the stratum client which will communicate  with the pool server.
     ///
     /// Preconditions: Client connected the pool server, then handler start to run.
     ///
-    ///
-    pub fn start(&self, mut wrapper: Arc<Wrapper>) -> Result<()>  {
+    pub fn start(&self, mut wrapper: Arc<Senders>) -> Result<()>  {
 
         task::spawn( async move {
             loop {
