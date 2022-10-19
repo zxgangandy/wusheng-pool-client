@@ -38,14 +38,17 @@ pub struct Cmd {
 
 impl Cmd {
     pub async fn run(&self) -> Result<()> {
-        let mut wrapper = global::Senders::new();
+        info!("Start cpu mining command!!!");
+        let mut senders = global::Senders::new();
 
-        let client = Client::new(pool_server, address);
-        if let Err(error) = client.start(wrapper.clone()).await {
+        let client = Client::new(self.pool_server, self.address.clone());
+        if let Err(error) = client.start(senders.clone()) {
             error!("[Stratum client start] error=> {}", error);
         }
 
-        let mgr = Manager::new(wrapper);
+        info!("Stratum client started!!!");
+
+        let mut mgr = Manager::new(senders);
         if let Err(error) =  mgr.start_cpu(
             self.num_miner,
             self.address.clone(),
@@ -54,6 +57,7 @@ impl Cmd {
             error!("[Mining manager start] error=> {}", error);
         }
 
+        info!("Mining manager started!!!");
         Ok(())
     }
 }

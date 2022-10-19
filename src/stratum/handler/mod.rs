@@ -5,6 +5,7 @@ pub mod authorize;
 pub mod notify;
 pub mod set_difficulty;
 
+use std::any::Any;
 use std::sync::Arc;
 use tokio::{
     net::TcpStream,
@@ -24,34 +25,34 @@ use crate::stratum::codec::StratumCodec;
 use authorize::AuthorizeHandler;
 use subscribe::SubscribeHandler;
 use crate::mining::MiningEvent;
-use crate::stratum::message::StratumMessage;
+use crate::stratum::message::{ResponseParams, StratumMessage};
 use crate::utils::global::Senders;
 
 #[derive(Debug)]
 pub struct Handler {
-    pub framed: Framed<TcpStream, StratumCodec>,
+    //pub framed: Framed<TcpStream, StratumCodec>,
     pub address: String,
     pub handler_sender: Sender<StratumMessage>,
     pub handler_receiver: Receiver<StratumMessage>,
-    pub wrapper: Arc<Senders>,
+    pub senders: Arc<Senders>,
 }
 
 impl Handler {
 
     pub fn new(
-        framed: Framed<TcpStream, StratumCodec>,
+        //framed: Framed<TcpStream, StratumCodec>,
         address: &String,
-        mut wrapper: Arc<Senders>
+        senders: Arc<Senders>
     ) -> Self {
         let (handler_sender, mut handler_receiver) = channel::<StratumMessage>(1024);
-        wrapper.set_handler_sender(handler_sender.clone());
+        senders.set_handler_sender(handler_sender.clone());
 
         return Handler {
-            framed,
+            //framed,
             address: address.clone(),
             handler_sender,
             handler_receiver,
-            wrapper
+            senders
         };
     }
 
@@ -64,18 +65,22 @@ impl Handler {
     /// Step 2:
     /// Client will send 'authorize' request message to the stratum server,
     /// then the stratum server send back 'authorize' response;
-    pub async fn run(&mut self, mgr_sender: Sender<MiningEvent>,) -> Result<()> {
-        if let Err(error) = SubscribeHandler::exec(&mut self.framed).await {
+    pub async fn run(
+        &mut self,
+        //mgr_sender: Sender<MiningEvent>,
+        framed: &mut Framed<TcpStream, StratumCodec>,
+    ) -> Result<()> {
+        if let Err(error) = SubscribeHandler::exec(framed).await {
             error!("[Subscribe handler apply failed] {}", error);
             return Err(anyhow!(error));
         }
 
-        if let Err(error) = AuthorizeHandler::exec(&mut self.framed, &self.address).await {
+        if let Err(error) = AuthorizeHandler::exec(framed, &self.address).await {
             error!("[Authorize handler apply failed] {}", error);
             return Err(anyhow!(error));
         }
 
-        let framed = &mut self.framed;
+        //let framed = &mut self.framed;
         loop {
             tokio::select! {
                 Some(message) = self.handler_receiver.recv() => {
@@ -87,7 +92,7 @@ impl Handler {
                 }
                 result = framed.next() => match result {
                     Some(Ok(message)) => {
-                        Self::process_mining_message(message, mgr_sender).await?;
+                        self.process_mining_message(message, framed).await?;
                     }
                     Some(Err(e)) => {
                         error!("Client failed to read the message: {:?}", e);
@@ -102,10 +107,29 @@ impl Handler {
         }
     }
 
-    async fn process_mining_message(&self, message: StratumMessage, ) -> Result<()> {
+    async fn process_mining_message(
+        &self,
+        message: StratumMessage,
+        framed: &mut Framed<TcpStream, StratumCodec>
+    ) -> Result<()> {
         match message {
             StratumMessage::Response(_, result, error) => {
                 info!("Client received response message");
+
+                let mut bool_result = false;
+                let mut msg_result = "".to_string();
+                match result.unwrap() {
+                    ResponseParams::Bool(v)=>{
+                        //submit_result = v;
+                    },
+                    _ => {}
+                }
+
+                // self.senders
+                //     .mgr_sender()
+                //     .send(MiningEvent::SubmitResult(submit_result, Some(msg_result)))
+                //     .await
+                //     .context("")?;
             }
             StratumMessage::Notify(
                 job_id,
@@ -117,13 +141,13 @@ impl Handler {
                 _
             ) => {
                 info!("Client received notify message");
-                self.wrapper
-                    .mgr_sender()
-                    .send(MiningEvent::NewWork(0, Some("NewWork".to_string())))
-                    .await
-                    .context("failed to send notify to miner manager")?;
+                // self.senders
+                //     .mgr_sender()
+                //     .send(MiningEvent::NewWork(0, Some("NewWork".to_string())))
+                //     .await
+                //     .context("failed to send notify to miner manager")?;
             }
-            StratumMessage::SetTarget(difficulty_target) => {
+            StratumMessage::SetDifficulty(difficulty_target) => {
                 info!("Client received set target message");
             }
             _ => {

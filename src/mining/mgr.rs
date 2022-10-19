@@ -6,7 +6,7 @@ use log::{info, error, warn};
 use std::sync::atomic::{AtomicBool, Ordering};
 use anyhow::{Context, ensure, Result};
 use anyhow::{anyhow, bail};
-use snarkvm::prelude::Address;
+use snarkvm::prelude::{Address, Testnet3};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
@@ -14,7 +14,6 @@ use tokio::task;
 use crate::mining::miner::{Miner, MinerEvent};
 use crate::mining::MiningEvent;
 use crate::mining::stats::{Stats, StatsEvent};
-use crate::stats::{Stats, StatsEvent};
 use crate::stratum::message::StratumMessage;
 use crate::utils::global;
 
@@ -24,12 +23,12 @@ pub struct Manager {
     mgr_sender: Sender<MiningEvent>,
     mgr_receiver: Receiver<MiningEvent>,
     stats: Arc<Stats>,
-    wrapper: Arc<global::Senders>,
+    senders: Arc<global::Senders>,
 }
 
 impl Manager {
 
-    pub fn new(wrapper: Arc<global::Senders>, ) -> Self {
+    pub fn new(senders: Arc<global::Senders>, ) -> Self {
         let (mgr_sender, mgr_receiver) = channel::<MiningEvent>(256);
 
         Self {
@@ -38,7 +37,7 @@ impl Manager {
             mgr_sender,
             mgr_receiver,
             stats: Arc::new(Stats::new()),
-            wrapper,
+            senders,
         }
     }
 
@@ -55,7 +54,7 @@ impl Manager {
     }
 
     pub async fn start_cpu(
-        &self,
+        &mut self,
         num_miner: u8,
         address: impl ToString,
         pool_ip: SocketAddr,
@@ -68,25 +67,23 @@ impl Manager {
         Ok(())
     }
 
+    fn running(&self) -> bool {
+        self.running.load(Ordering::SeqCst)
+    }
+
 
     async fn _start_cpu(
-        mut self,
+        &mut self,
         num_miner: u8,
-        address: Address<Testnet2>,
+        address: Address<Testnet3>,
         pool_ip: SocketAddr,
     ) -> Result<()> {
-        let threads = num_cpus::get() as u16 / num_miner;
+        let threads = num_cpus::get() as u16 / num_miner as u16;
         for index in 0..num_miner {
             let mut miner = Miner::new(index, threads, self.stats.clone());
             self.workers.push(miner.miner_sender());
             miner.start();
         }
-
-        info!(
-            "Created {} miners with {} threads each for the miner manager",
-            self.workers.len(),
-            thread_per_worker
-        );
 
         self.serve();
         info!("start-cpu started");
@@ -94,7 +91,9 @@ impl Manager {
     }
 
 
-    fn serve(mut self, ) {
+
+    fn serve(&mut self, ) {
+        let mgr_receiver = self.mgr_receiver;
         task::spawn(async move {
             while let Some(msg) = self.mgr_receiver.recv().await {
                 match msg {
@@ -141,7 +140,7 @@ impl Manager {
 
     async fn exit(&mut self, ) -> Result<()> {
         let (tx, rx) = oneshot::channel();
-        client_router.send(ClientMsg::Exit(tx)).await.context("client")?;
+        self.mgr_sender.send(MiningEvent::Exit(tx)).await.context("client")?;
         rx.await.context("failed to get exit response of client")?;
 
         for (i, worker) in self.workers.iter().enumerate() {
@@ -151,8 +150,8 @@ impl Manager {
             info!("worker {i} terminated");
         }
         let (tx, rx) = oneshot::channel();
-        statistic_router
-            .send(StatisticMsg::Exit(tx))
+        self.stats.sender()
+            .send(StatsEvent::Exit(tx))
             .await
             .context("statistic")?;
         rx.await.context("failed to get exit response of statistic mod")?;

@@ -22,7 +22,6 @@ use tokio::{
 use tokio::sync::{mpsc, oneshot};
 use tokio::sync::mpsc::{Receiver, Sender};
 use crate::mining::stats::Stats;
-use crate::stats::Stats;
 
 
 pub struct Miner {
@@ -77,37 +76,37 @@ impl Miner {
     }
 
     fn wait_for_terminator(&self) {
-        self.terminator.store(true, Ordering::SeqCst);
-        while !self.ready.load(Ordering::SeqCst) {
-            spin_loop();
-        }
-        self.terminator.store(false, Ordering::SeqCst);
+        //self.terminator.store(true, Ordering::SeqCst);
+        // while !self.ready.load(Ordering::SeqCst) {
+        //     spin_loop();
+        // }
+        //self.terminator.store(false, Ordering::SeqCst);
     }
 
     async fn new_work(&self) {
-        let height = template.block_height();
-        debug!("starting new work: {}", height);
-        self.wait_for_terminator();
-        debug!("the thread pool is ready to go");
-
-        let terminator = self.terminator.clone();
-        let ready = self.ready.clone();
-        let statistic_router = self.statistic_router.clone();
-        let client_router = self.client_router.clone();
-
-        let miner = self.clone();
-
-        self.pool.spawn(move || {
-            ready.store(false, Ordering::SeqCst);
-            // ensure new work starts before returning
-
-            while !terminator.load(Ordering::SeqCst) {
-                info!("Miner is mining now");
-                //miner.stats.update_total_proofs();
-            }
-            debug!("block {} terminated", height);
-            ready.store(true, Ordering::SeqCst);
-        });
+        //let height = template.block_height();
+        // debug!("starting new work: {}", height);
+        // self.wait_for_terminator();
+        // debug!("the thread pool is ready to go");
+        //
+        // let terminator = self.terminator.clone();
+        // let ready = self.ready.clone();
+        // let statistic_router = self.statistic_router.clone();
+        // let client_router = self.client_router.clone();
+        //
+        // let miner = self.clone();
+        //
+        // self.pool.spawn(move || {
+        //     ready.store(false, Ordering::SeqCst);
+        //     // ensure new work starts before returning
+        //
+        //     while !terminator.load(Ordering::SeqCst) {
+        //         info!("Miner is mining now");
+        //         //miner.stats.update_total_proofs();
+        //     }
+        //     debug!("block {} terminated", height);
+        //     ready.store(true, Ordering::SeqCst);
+        // });
 
         debug!("spawned new work");
     }

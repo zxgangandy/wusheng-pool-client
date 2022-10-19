@@ -24,7 +24,7 @@ pub enum StratumMessage {
     /// (id, worker_name, job_id, nonce, proof)
     Submit(Id, String, String, String, String),
 
-    /// (id, result, error)
+    /// (result， message)
     Response(Id, Option<ResponseParams>, Option<Error<()>>),
 }
 

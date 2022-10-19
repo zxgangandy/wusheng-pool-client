@@ -40,15 +40,17 @@ impl Client {
     ///
     /// Preconditions: Client connected the pool server, then handler start to run.
     ///
-    pub fn start(&self, mut wrapper: Arc<Senders>) -> Result<()>  {
+    pub fn start(&self, mut senders: Arc<Senders>) -> Result<()>  {
 
+        let pool_server = self.pool_server.clone();
+        let miner_address = self.miner_address.clone();
         task::spawn( async move {
             loop {
-                let stream = self.connect_to_pool_server(&self.pool_server).await?;
+                let stream = Client::connect_to_pool_server(&pool_server).await.unwrap();
                 let mut framed = Framed::new(stream, StratumCodec::default());
 
-                let mut handler = Handler::new(framed, &self.miner_address, wrapper.clone());
-                if let Err(error) = handler.run(self.mgr_sender.clone()).await {
+                let mut handler = Handler::new(&miner_address, senders.clone());
+                if let Err(error) = handler.run(&mut framed).await {
                     error!("[Client handler] {}", error);
                     sleep(Duration::from_secs(5)).await;
                     continue;
@@ -61,7 +63,6 @@ impl Client {
 
 
     pub async fn connect_to_pool_server(
-        &self,
         pool_server: &SocketAddr,
     ) -> Result<TcpStream>  {
         loop {
