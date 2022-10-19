@@ -20,8 +20,8 @@ use crate::utils::global;
 pub struct Manager {
     running: AtomicBool,
     workers: Vec<Sender<MinerEvent>>,
-    mgr_sender: Sender<MiningEvent>,
-    mgr_receiver: Receiver<MiningEvent>,
+    mgr_sender: Option<Sender<MiningEvent>>,
+    //mgr_receiver: Receiver<MiningEvent>,
     stats: Arc<Stats>,
     senders: Arc<global::Senders>,
 }
@@ -29,13 +29,11 @@ pub struct Manager {
 impl Manager {
 
     pub fn new(senders: Arc<global::Senders>, ) -> Self {
-        let (mgr_sender, mgr_receiver) = channel::<MiningEvent>(256);
 
         Self {
             running: AtomicBool::new(false),
             workers: vec![],
-            mgr_sender,
-            mgr_receiver,
+            mgr_sender: None,
             stats: Arc::new(Stats::new()),
             senders,
         }
@@ -44,7 +42,8 @@ impl Manager {
     pub async fn stop(&self) {
         if self.running() {
             let (tx, rx) = oneshot::channel();
-            if let Err(err) = self.mgr_sender.send(MiningEvent::Exit(tx)).await {
+            let mgr_sender = self.mgr_sender.clone().unwrap();
+            if let Err(err) = mgr_sender.send(MiningEvent::Exit(tx)).await {
                 error!("failed to stop prover: {err}");
             }
             rx.await.unwrap();
@@ -54,16 +53,18 @@ impl Manager {
     }
 
     pub async fn start_cpu(
-        &mut self,
+        mut self,
         num_miner: u8,
         address: impl ToString,
         pool_ip: SocketAddr,
     ) -> Result<()> {
+        let (mgr_sender, mgr_receiver) = channel::<MiningEvent>(256);
+        self.mgr_sender.replace(mgr_sender);
         let address = Address::from_str(&address.to_string()).context("invalid aleo address")?;
         ensure!(!self.running(), "prover is already running");
 
-        self._start_cpu(num_miner, address, pool_ip).await?;
-        self.running.store(true, Ordering::SeqCst);
+        self._start_cpu(num_miner, address, pool_ip, mgr_receiver).await?;
+        //self.running.store(true, Ordering::SeqCst);
         Ok(())
     }
 
@@ -73,10 +74,11 @@ impl Manager {
 
 
     async fn _start_cpu(
-        &mut self,
+        mut self,
         num_miner: u8,
         address: Address<Testnet3>,
         pool_ip: SocketAddr,
+        mut mgr_receiver: Receiver<MiningEvent>,
     ) -> Result<()> {
         let threads = num_cpus::get() as u16 / num_miner as u16;
         for index in 0..num_miner {
@@ -85,17 +87,17 @@ impl Manager {
             miner.start();
         }
 
-        self.serve();
+        self.serve(mgr_receiver);
         info!("start-cpu started");
         Ok(())
     }
 
 
 
-    fn serve(&mut self, ) {
-        let mgr_receiver = self.mgr_receiver;
+    fn serve(mut self, mut mgr_receiver: Receiver<MiningEvent>) {
+        //let mgr_receiver = self.mgr_receiver;
         task::spawn(async move {
-            while let Some(msg) = self.mgr_receiver.recv().await {
+            while let Some(msg) = mgr_receiver.recv().await {
                 match msg {
                     MiningEvent::Exit(responder) => {
                         if let Err(err) = self.exit().await {
@@ -140,7 +142,8 @@ impl Manager {
 
     async fn exit(&mut self, ) -> Result<()> {
         let (tx, rx) = oneshot::channel();
-        self.mgr_sender.send(MiningEvent::Exit(tx)).await.context("client")?;
+        let mgr_sender = self.mgr_sender.clone().unwrap();
+        mgr_sender.send(MiningEvent::Exit(tx)).await.context("client")?;
         rx.await.context("failed to get exit response of client")?;
 
         for (i, worker) in self.workers.iter().enumerate() {

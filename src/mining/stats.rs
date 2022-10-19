@@ -46,8 +46,8 @@ impl Stats {
             handlers: vec![]
         };
 
-        stats.start_receiver(rx);
-        stats.start_calculator();
+        //stats.start_receiver(rx);
+        //stats.start_calculator();
 
         stats
     }
@@ -78,7 +78,7 @@ impl Stats {
             }
         });
 
-        self.handlers.push(handler);
+        //self.handlers.push(handler);
     }
 
     pub fn update_total_proofs(&self) {

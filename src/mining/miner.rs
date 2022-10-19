@@ -61,18 +61,18 @@ impl Miner {
     }
 
     pub fn start(&mut self, )  {
-        task::spawn(async move {
-            while let Some(msg) = self.miner_receiver.recv().await {
-                match msg {
-                    MinerEvent::NewWork(difficulty, message) => self.new_work().await,
-                    MinerEvent::Exit(responder) => {
-                        self.wait_for_terminator();
-                        responder.send(()).expect("failed response exit msg");
-                        break;
-                    }
-                }
-            }
-        });
+        // task::spawn(async move {
+        //     while let Some(msg) = self.miner_receiver.recv().await {
+        //         match msg {
+        //             MinerEvent::NewWork(difficulty, message) => self.new_work().await,
+        //             MinerEvent::Exit(responder) => {
+        //                 self.wait_for_terminator();
+        //                 responder.send(()).expect("failed response exit msg");
+        //                 break;
+        //             }
+        //         }
+        //     }
+        // });
     }
 
     fn wait_for_terminator(&self) {
