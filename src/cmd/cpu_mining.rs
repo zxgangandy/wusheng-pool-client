@@ -27,13 +27,6 @@ pub struct Cmd {
     /// max_core is the count of the thread pool used to calculate proof
     #[structopt(short="n", long="num_miner", default_value = "1")]
     num_miner: u8,
-
-    // /// Number of threads that every thread pool will use
-    // /// It is recommended to ensure
-    // /// `max_core * threads` < `amount of threads of your device`
-    // #[structopt(short="n", long="threads")]
-    // #[structopt(verbatim_doc_comment)]
-    // threads: Option<u16>,
 }
 
 impl Cmd {
@@ -48,7 +41,7 @@ impl Cmd {
 
         info!("Stratum client started!!!");
 
-        let mut mgr = Manager::new(senders);
+        let mut mgr = Manager::new(senders).await;
         if let Err(error) =  mgr.start_cpu(
             self.num_miner,
             self.address.clone(),

@@ -13,27 +13,25 @@ pub struct Senders {
 impl Senders {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
-            mgr_sender: RwLock::new(Default::default()),
-            handler_sender: RwLock::new(Default::default()),
+            mgr_sender: RwLock::new(None),
+            handler_sender: RwLock::new(None),
         })
     }
 
     pub async fn set_mgr_sender(&self, mgr_sender: Sender<MiningEvent>) {
-        //self.mgr_sender.replace(mgr_sender);
         *self.mgr_sender.write().await = Some(mgr_sender);
     }
 
-    // pub fn mgr_sender(&self)->Sender<MiningEvent> {
-    //     self.mgr_sender.unwrap()
-    // }
+    pub async fn mgr_sender(&self)->Sender<MiningEvent> {
+        self.mgr_sender.read().await.clone().unwrap()
+    }
 
     pub async fn set_handler_sender(&self, handler_sender: Sender<StratumMessage>) {
-        //self.handler_sender.replace(handler_sender);
         *self.handler_sender.write().await = Some(handler_sender);
     }
 
-    // pub fn handler_sender(&self) -> Sender<StratumMessage> {
-    //     self.handler_sender.unwrap()
-    // }
+    pub async fn handler_sender(&self) -> Sender<StratumMessage> {
+        self.handler_sender.read().await.clone().unwrap()
+    }
 
 }

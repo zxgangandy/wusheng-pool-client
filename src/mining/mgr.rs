@@ -28,13 +28,13 @@ pub struct Manager {
 
 impl Manager {
 
-    pub fn new(senders: Arc<global::Senders>, ) -> Self {
+    pub async fn new(senders: Arc<global::Senders>, ) -> Self {
 
         Self {
             running: AtomicBool::new(false),
             workers: vec![],
             mgr_sender: None,
-            stats: Arc::new(Stats::new()),
+            stats: Stats::new(),
             senders,
         }
     }
@@ -61,7 +61,7 @@ impl Manager {
         let (mgr_sender, mgr_receiver) = channel::<MiningEvent>(256);
         self.mgr_sender.replace(mgr_sender);
         let address = Address::from_str(&address.to_string()).context("invalid aleo address")?;
-        ensure!(!self.running(), "prover is already running");
+        ensure!(!self.running(), "pool client is already running");
 
         self._start_cpu(num_miner, address, pool_ip, mgr_receiver).await?;
         //self.running.store(true, Ordering::SeqCst);

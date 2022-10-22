@@ -3,6 +3,7 @@ use std::{net::SocketAddr,
           sync::{atomic::Ordering, Arc},
           time::Duration,
 };
+use std::ops::Deref;
 use std::sync::atomic::AtomicU32;
 use tokio::{
     net::TcpStream,
@@ -16,7 +17,7 @@ use anyhow::{anyhow, bail};
 use log::{debug, info};
 use ansi_term::Colour::{Cyan, Green, Red};
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, RwLock};
 use tokio::task::JoinHandle;
 
 pub struct Stats{
@@ -24,7 +25,7 @@ pub struct Stats{
     valid_shares: Arc<AtomicU32>,
     invalid_shares: Arc<AtomicU32>,
     stats_sender: Sender<StatsEvent>,
-    handlers: Vec<JoinHandle<()>>,
+    handlers: RwLock<Vec<JoinHandle<()>>>,
 }
 
 #[derive(Debug)]
@@ -36,18 +37,19 @@ pub enum StatsEvent {
 
 impl Stats {
 
-    pub fn new() -> Self {
+    pub async fn new() -> Arc<Self> {
         let (tx, rx) = channel(256);
-        let mut stats = Stats {
+        let stats = Stats {
             total_proofs: Arc::new(Default::default()),
             valid_shares: Arc::new(Default::default()),
             invalid_shares: Arc::new(Default::default()),
             stats_sender: tx,
-            handlers: vec![]
+            handlers: RwLock::new(vec![])
         };
 
-        //stats.start_receiver(rx);
-        //stats.start_calculator();
+        let stats = Arc::new(stats);
+        stats.clone().start_receiver(rx).await;
+        stats.clone().start_calculator().await;
 
         stats
     }
@@ -56,18 +58,20 @@ impl Stats {
         self.stats_sender.clone()
     }
 
-    fn start_receiver(mut self, mut rx: Receiver<StatsEvent>) {
+    async fn start_receiver(self: Arc<Self>, mut rx: Receiver<StatsEvent>) {
+        let stats = Arc::clone(&self);
+
         let handler = task::spawn(async move {
             while let Some(msg) = rx.recv().await {
                 match msg {
                     StatsEvent::Prove(valid, weight) => {
-                        self.update_total_proofs();
+                        stats.update_total_proofs();
                     }
                     StatsEvent::SubmitResult(is_valid, msg) => {
                         //self.print_shares(is, msg).await;
                     }
                     StatsEvent::Exit(responder) => {
-                        for handler in self.handlers {
+                        for handler in stats.handlers.read().await.deref() {
                             handler.abort();
                         }
                         responder.send(()).expect("Failed to respond exit msg");
@@ -78,7 +82,8 @@ impl Stats {
             }
         });
 
-        //self.handlers.push(handler);
+        let stats = Arc::clone(&self);
+        stats.handlers.write().await.push(handler);
     }
 
     pub fn update_total_proofs(&self) {
@@ -86,7 +91,7 @@ impl Stats {
     }
 
     /// start calculator
-    pub async fn start_calculator(&mut self) ->Result<()> {
+    pub async fn start_calculator(self: Arc<Self>) {
         let total_proofs = self.total_proofs.clone();
         let handler = task::spawn(async move {
             let mut log = VecDeque::<u32>::from(vec![0; 60]);
@@ -114,11 +119,10 @@ impl Stats {
             }
         });
 
-        self.handlers.push(handler);
+        self.clone().handlers.write().await.push(handler);
 
         debug!("Created proof rate calculator");
 
-        Ok(())
     }
 
     fn calculate_proof_rate(now: u32, past: u32, interval: u32) -> Box<str> {
@@ -193,7 +197,6 @@ impl Stats {
 #[cfg(test)]
 mod test {
     use std::collections::VecDeque;
-    use crate::stats::Stats;
 
     #[test]
     fn test_vecdeque() {
