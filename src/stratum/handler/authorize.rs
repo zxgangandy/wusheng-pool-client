@@ -39,7 +39,7 @@ impl AuthorizeHandler {
         let authorization = StratumMessage::Authorize(
             Id::Num(id),
             address.clone(),
-            "".to_string()
+            "123456".to_string()
         );
         id += 1;
         if let Err(e) = framed.send(authorization).await {

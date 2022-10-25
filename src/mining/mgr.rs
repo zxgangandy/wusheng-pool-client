@@ -34,7 +34,7 @@ impl Manager {
             running: AtomicBool::new(false),
             workers: vec![],
             mgr_sender: None,
-            stats: Stats::new(),
+            stats: Stats::new().await,
             senders,
         }
     }
