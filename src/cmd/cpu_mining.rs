@@ -41,7 +41,7 @@ impl Cmd {
 
         info!("Stratum client started!!!");
 
-        let mut mgr = Manager::new(senders).await;
+        let mut mgr = Manager::new(senders, self.address.clone()).await;
         if let Err(error) =  mgr.start_cpu(
             self.num_miner,
             self.address.clone(),

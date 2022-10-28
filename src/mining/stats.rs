@@ -68,7 +68,7 @@ impl Stats {
                         stats.update_total_proofs();
                     }
                     StatsEvent::SubmitResult(is_valid, msg) => {
-                        stats.print_shares(is, msg).await;
+                        stats.print_shares(is_valid, msg).await;
                     }
                     StatsEvent::Exit(responder) => {
                         for handler in stats.handlers.read().await.deref() {

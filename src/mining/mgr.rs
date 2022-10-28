@@ -24,11 +24,12 @@ pub struct Manager {
     //mgr_receiver: Receiver<MiningEvent>,
     stats: Arc<Stats>,
     senders: Arc<global::Senders>,
+    miner_address: String,
 }
 
 impl Manager {
 
-    pub async fn new(senders: Arc<global::Senders>, ) -> Self {
+    pub async fn new(senders: Arc<global::Senders>, miner_address: String,) -> Self {
 
         Self {
             running: AtomicBool::new(false),
@@ -36,6 +37,7 @@ impl Manager {
             mgr_sender: None,
             stats: Stats::new().await,
             senders,
+            miner_address,
         }
     }
 
@@ -62,8 +64,8 @@ impl Manager {
         self.mgr_sender.replace(mgr_sender);
         let address = Address::from_str(&address.to_string()).context("invalid aleo address")?;
         ensure!(!self.running(), "pool client is already running");
-
-        self._start_cpu(num_miner, address, pool_ip, mgr_receiver).await?;
+        let senders = self.senders.clone();
+        self._start_cpu(num_miner, address, pool_ip, mgr_receiver, senders).await?;
         //self.running.store(true, Ordering::SeqCst);
         Ok(())
     }
@@ -79,12 +81,18 @@ impl Manager {
         address: Address<Testnet3>,
         pool_ip: SocketAddr,
         mut mgr_receiver: Receiver<MiningEvent>,
+        senders: Arc<global::Senders>,
     ) -> Result<()> {
         let threads = num_cpus::get() as u16 / num_miner as u16;
         for index in 0..num_miner {
-            let mut miner = Miner::new(index, threads, self.stats.clone());
+            let mut miner = Miner::new(
+                index,
+                threads,
+                self.stats.clone(),
+                senders.clone(),
+                self.miner_address.clone()
+            );
             self.workers.push(miner.miner_sender());
-            //miner.start();
         }
 
         self.serve(mgr_receiver);
@@ -121,7 +129,11 @@ impl Manager {
         match msg {
             MiningEvent::NewWork(epoch_number, epoch_challenge, address) => {
                 for worker in self.workers.iter() {
-                    let event = MinerEvent::NewWork(epoch_number, epoch_challenge, address);
+                    let event = MinerEvent::NewWork(
+                        epoch_number,
+                        epoch_challenge.clone(),
+                        address.clone()
+                    );
                     worker.try_send(event)?;
                 }
             }
