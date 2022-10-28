@@ -84,7 +84,7 @@ impl Manager {
         for index in 0..num_miner {
             let mut miner = Miner::new(index, threads, self.stats.clone());
             self.workers.push(miner.miner_sender());
-            miner.start();
+            //miner.start();
         }
 
         self.serve(mgr_receiver);
@@ -95,7 +95,6 @@ impl Manager {
 
 
     fn serve(mut self, mut mgr_receiver: Receiver<MiningEvent>) {
-        //let mgr_receiver = self.mgr_receiver;
         task::spawn(async move {
             while let Some(msg) = mgr_receiver.recv().await {
                 match msg {
@@ -120,9 +119,10 @@ impl Manager {
 
     fn process_msg(&mut self, msg: MiningEvent) -> Result<()> {
         match msg {
-            MiningEvent::NewWork(..) => {
+            MiningEvent::NewWork(epoch_number, epoch_challenge, address) => {
                 for worker in self.workers.iter() {
-                    worker.try_send(MinerEvent::NewWork(0, Some("NewWork".to_string())))?;
+                    let event = MinerEvent::NewWork(epoch_number, epoch_challenge, address);
+                    worker.try_send(event)?;
                 }
             }
             MiningEvent::SubmitResult(valid, msg) => {

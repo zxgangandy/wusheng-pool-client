@@ -7,7 +7,7 @@ pub mod stats;
 
 #[derive(Debug)]
 pub enum MiningEvent {
-    NewWork(u64, Option<String>),
+    NewWork(epoch_number, epoch_challenge, address),
     SubmitResult(bool, Option<String>),
     Exit(oneshot::Sender<()>),
 }
