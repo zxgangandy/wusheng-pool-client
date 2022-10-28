@@ -21,8 +21,8 @@ pub enum StratumMessage {
     Notify(String, String, String, String, String, String, bool),
 
     /// Submit shares to the pool.
-    /// (id, worker_name, job_id, nonce, proof)
-    Submit(Id, String, String, String, String),
+    /// (id, worker_name, job_id, nonce, commitment, proof)
+    Submit(Id, String, String, String, String, String),
 
     /// (result， message)
     Response(Id, Option<ResponseParams>, Option<Error<()>>),

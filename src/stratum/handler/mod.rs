@@ -7,6 +7,7 @@ pub mod set_difficulty;
 
 use std::any::Any;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::{
     net::TcpStream,
     task,
@@ -35,6 +36,7 @@ pub struct Handler {
     pub handler_sender: Sender<StratumMessage>,
     pub handler_receiver: Receiver<StratumMessage>,
     pub senders: Arc<Senders>,
+    pub current_proof_target: Arc<AtomicU64>,
 }
 
 impl Handler {
@@ -52,7 +54,8 @@ impl Handler {
             address: address.clone(),
             handler_sender,
             handler_receiver,
-            senders
+            senders,
+            current_proof_target: Arc::new(Default::default())
         };
     }
 
@@ -149,6 +152,7 @@ impl Handler {
             }
             StratumMessage::SetDifficulty(difficulty_target) => {
                 info!("Client received set target message");
+                self.new_target(difficulty_target);
             }
             _ => {
                 info!("Unexpected message: {}", message.name());
@@ -156,6 +160,11 @@ impl Handler {
         }
 
         Ok(())
+    }
+
+    fn new_target(&self, proof_target: u64) {
+        self.current_proof_target.store(proof_target, Ordering::SeqCst);
+        info!("New proof target: {}", proof_target);
     }
 
 }

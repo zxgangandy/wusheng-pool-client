@@ -78,11 +78,11 @@ impl Encoder<StratumMessage> for StratumCodec {
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
             }
-            StratumMessage::Submit(id, worker_name, job_id, nonce, proof) => {
+            StratumMessage::Submit(id, worker_name, job_id, nonce, commitment, proof) => {
                 let request = Request {
                     jsonrpc: Version::V2,
                     method: "mining.submit",
-                    params: Some(vec![worker_name, job_id, nonce, proof]),
+                    params: Some(vec![worker_name, job_id, nonce, commitment, proof]),
                     id: Some(id),
                 };
                 serde_json::to_vec(&request).unwrap_or_default()
@@ -213,9 +213,10 @@ impl Decoder for StratumCodec {
                     let worker_name = unwrap_str_value(&params[0])?;
                     let job_id = unwrap_str_value(&params[1])?;
                     let nonce = unwrap_str_value(&params[2])?;
-                    let proof = unwrap_str_value(&params[3])?;
+                    let commitment = unwrap_str_value(&params[3])?;
+                    let proof = unwrap_str_value(&params[4])?;
 
-                    StratumMessage::Submit(id.unwrap_or(Id::Num(0)), worker_name, job_id, nonce, proof)
+                    StratumMessage::Submit(id.unwrap_or(Id::Num(0)), worker_name, job_id, nonce, commitment, proof)
                 }
                 _ => {
                     return Err(io::Error::new(io::ErrorKind::InvalidData, "Unknown method"));
