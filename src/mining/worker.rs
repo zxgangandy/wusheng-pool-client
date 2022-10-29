@@ -39,9 +39,9 @@ use crate::utils::global;
 use crate::utils::global::Senders;
 
 
-pub struct Miner {
+pub struct Worker {
     pool: ThreadPool,
-    miner_sender: Sender<MinerEvent>,
+    worker_sender: Sender<WorkerEvent>,
     stats: Arc<Stats>,
     terminator: Arc<AtomicBool>,
     ready: Arc<AtomicBool>,
@@ -53,14 +53,14 @@ pub struct Miner {
 }
 
 #[derive(Debug)]
-pub enum MinerEvent {
+pub enum WorkerEvent {
     NewTarget(u64),
     NewWork(u64, String, String),
     Exit(oneshot::Sender<()>),
 }
 
 
-impl Miner {
+impl Worker {
     pub fn new(
         index: u8,
         threads: u16,
@@ -68,7 +68,7 @@ impl Miner {
         senders: Arc<Senders>,
         miner_address: String,
     ) -> Arc<Self> {
-        let (miner_sender, miner_receiver) = channel::<MinerEvent>(256);
+        let (miner_sender, miner_receiver) = channel::<WorkerEvent>(256);
 
         let pool = ThreadPoolBuilder::new()
             .stack_size(8 * 1024 * 1024)
@@ -82,9 +82,9 @@ impl Miner {
         let config = PuzzleConfig { degree };
         let puzzle = CoinbasePuzzle::<Testnet3>::trim(&srs, config).unwrap();
 
-        let miner = Miner {
+        let miner = Worker {
             pool,
-            miner_sender,
+            worker_sender: miner_sender,
             stats,
             terminator: Arc::new(AtomicBool::new(false)),
             ready: Arc::new(AtomicBool::new(true)),
@@ -101,22 +101,22 @@ impl Miner {
         miner
     }
 
-    pub fn miner_sender(&self) -> Sender<MinerEvent> {
-        self.miner_sender.clone()
+    pub fn worker_sender(&self) -> Sender<WorkerEvent> {
+        self.worker_sender.clone()
     }
 
-    pub fn start(self: Arc<Self>, mut miner_receiver: Receiver<MinerEvent>)  {
+    pub fn start(self: Arc<Self>, mut worker_receiver: Receiver<WorkerEvent>)  {
         let miner = Arc::clone(&self);
 
         task::spawn(async move {
             let miner = Arc::clone(&miner);
 
-            while let Some(msg) = miner_receiver.recv().await {
+            while let Some(msg) = worker_receiver.recv().await {
                 match msg {
-                    MinerEvent::NewTarget(target) => {
+                    WorkerEvent::NewTarget(target) => {
                         miner.new_target(target);
                     }
-                    MinerEvent::NewWork(epoch_number, epoch_challenge, address) => {
+                    WorkerEvent::NewWork(epoch_number, epoch_challenge, address) => {
                         let hex = &*hex::decode(epoch_challenge.as_bytes()).unwrap();
                         let stats = miner.stats.clone();
                         let senders = miner.senders.clone();
@@ -133,7 +133,7 @@ impl Miner {
                             miner_address.clone(),
                         ).await
                     },
-                    MinerEvent::Exit(responder) => {
+                    WorkerEvent::Exit(responder) => {
                         miner.wait_for_terminator();
                         responder.send(()).expect("failed response exit msg");
                         break;

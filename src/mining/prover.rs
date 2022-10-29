@@ -11,30 +11,27 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
 
-use crate::mining::miner::{Miner, MinerEvent};
-use crate::mining::MiningEvent;
+use crate::mining::worker::{Worker, WorkerEvent};
+use crate::mining::ProverEvent;
 use crate::mining::stats::{Stats, StatsEvent};
 use crate::stratum::message::StratumMessage;
 use crate::utils::global;
 
-pub struct Manager {
-    running: AtomicBool,
-    workers: Vec<Sender<MinerEvent>>,
-    mgr_sender: Option<Sender<MiningEvent>>,
-    //mgr_receiver: Receiver<MiningEvent>,
+pub struct Prover {
+    workers: Vec<Sender<WorkerEvent>>,
+    prover_sender: Option<Sender<ProverEvent>>,
     stats: Arc<Stats>,
     senders: Arc<global::Senders>,
     miner_address: String,
 }
 
-impl Manager {
+impl Prover {
 
     pub async fn new(senders: Arc<global::Senders>, miner_address: String,) -> Self {
 
         Self {
-            running: AtomicBool::new(false),
             workers: vec![],
-            mgr_sender: None,
+            prover_sender: None,
             stats: Stats::new().await,
             senders,
             miner_address,
@@ -44,13 +41,12 @@ impl Manager {
     pub async fn stop(&self) {
         if self.running() {
             let (tx, rx) = oneshot::channel();
-            let mgr_sender = self.mgr_sender.clone().unwrap();
-            if let Err(err) = mgr_sender.send(MiningEvent::Exit(tx)).await {
+            let prover_sender = self.prover_sender.clone().unwrap();
+            if let Err(err) = prover_sender.send(ProverEvent::Exit(tx)).await {
                 error!("failed to stop prover: {err}");
             }
             rx.await.unwrap();
-            info!("prover exited");
-            self.running.store(false, Ordering::SeqCst);
+            info!("Mgr exited");
         }
     }
 
@@ -60,53 +56,46 @@ impl Manager {
         address: impl ToString,
         pool_ip: SocketAddr,
     ) -> Result<()> {
-        let (mgr_sender, mgr_receiver) = channel::<MiningEvent>(256);
-        self.mgr_sender.replace(mgr_sender);
+        let (mgr_sender, mgr_receiver) = channel::<ProverEvent>(256);
+        self.prover_sender.replace(mgr_sender);
         let address = Address::from_str(&address.to_string()).context("invalid aleo address")?;
-        ensure!(!self.running(), "pool client is already running");
         let senders = self.senders.clone();
-        self._start_cpu(num_miner, address, pool_ip, mgr_receiver, senders).await?;
-        //self.running.store(true, Ordering::SeqCst);
+        self.start_all(num_miner, address, pool_ip, mgr_receiver, senders).await?;
         Ok(())
     }
 
-    fn running(&self) -> bool {
-        self.running.load(Ordering::SeqCst)
-    }
-
-
-    async fn _start_cpu(
+    async fn start_all(
         mut self,
         num_miner: u8,
         address: Address<Testnet3>,
         pool_ip: SocketAddr,
-        mut mgr_receiver: Receiver<MiningEvent>,
+        mut mgr_receiver: Receiver<ProverEvent>,
         senders: Arc<global::Senders>,
     ) -> Result<()> {
         let threads = num_cpus::get() as u16 / num_miner as u16;
         for index in 0..num_miner {
-            let mut miner = Miner::new(
+            let mut miner = Worker::new(
                 index,
                 threads,
                 self.stats.clone(),
                 senders.clone(),
                 self.miner_address.clone()
             );
-            self.workers.push(miner.miner_sender());
+            self.workers.push(miner.worker_sender());
         }
 
         self.serve(mgr_receiver);
-        info!("start-cpu started");
+        info!("start all started");
         Ok(())
     }
 
 
 
-    fn serve(mut self, mut mgr_receiver: Receiver<MiningEvent>) {
+    fn serve(mut self, mut prover_receiver: Receiver<ProverEvent>) {
         task::spawn(async move {
-            while let Some(msg) = mgr_receiver.recv().await {
+            while let Some(msg) = prover_receiver.recv().await {
                 match msg {
-                    MiningEvent::Exit(responder) => {
+                    ProverEvent::Exit(responder) => {
                         if let Err(err) = self.exit().await {
                             error!("Failed to exit: {err}");
                             // grace exit failed, force exit
@@ -125,11 +114,11 @@ impl Manager {
         });
     }
 
-    fn process_msg(&mut self, msg: MiningEvent) -> Result<()> {
+    fn process_msg(&mut self, msg: ProverEvent) -> Result<()> {
         match msg {
-            MiningEvent::NewWork(epoch_number, epoch_challenge, address) => {
+            ProverEvent::NewWork(epoch_number, epoch_challenge, address) => {
                 for worker in self.workers.iter() {
-                    let event = MinerEvent::NewWork(
+                    let event = WorkerEvent::NewWork(
                         epoch_number,
                         epoch_challenge.clone(),
                         address.clone()
@@ -137,7 +126,7 @@ impl Manager {
                     worker.try_send(event)?;
                 }
             }
-            MiningEvent::SubmitResult(valid, msg) => {
+            ProverEvent::SubmitResult(valid, msg) => {
                 if let Err(err) = self.stats.sender().try_send(
                     StatsEvent::SubmitResult(valid, msg)
                 ) {
@@ -154,13 +143,13 @@ impl Manager {
 
     async fn exit(&mut self, ) -> Result<()> {
         let (tx, rx) = oneshot::channel();
-        let mgr_sender = self.mgr_sender.clone().unwrap();
-        mgr_sender.send(MiningEvent::Exit(tx)).await.context("client")?;
+        let mgr_sender = self.prover_sender.clone().unwrap();
+        mgr_sender.send(ProverEvent::Exit(tx)).await.context("client")?;
         rx.await.context("failed to get exit response of client")?;
 
         for (i, worker) in self.workers.iter().enumerate() {
             let (tx, rx) = oneshot::channel();
-            worker.send(MinerEvent::Exit(tx)).await.context("worker")?;
+            worker.send(WorkerEvent::Exit(tx)).await.context("worker")?;
             rx.await.context("failed to get exit response of worker")?;
             info!("worker {i} terminated");
         }

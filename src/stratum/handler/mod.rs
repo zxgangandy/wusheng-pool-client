@@ -25,7 +25,7 @@ use tokio_stream::StreamExt;
 use crate::stratum::codec::StratumCodec;
 use authorize::AuthorizeHandler;
 use subscribe::SubscribeHandler;
-use crate::mining::MiningEvent;
+use crate::mining::ProverEvent;
 use crate::stratum::message::{ResponseParams, StratumMessage};
 use crate::utils::global::Senders;
 

@@ -17,7 +17,7 @@ use anyhow::Result;
 use anyhow::{anyhow, bail};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
-use crate::mining::MiningEvent;
+use crate::mining::ProverEvent;
 use crate::stratum::codec::StratumCodec;
 use crate::stratum::handler::Handler;
 use crate::stratum::message::StratumMessage;
