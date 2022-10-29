@@ -50,7 +50,7 @@ impl Prover {
 
     pub async fn start_cpu(
         mut self,
-        num_miner: u8,
+        num_worker: u8,
         address: impl ToString,
         pool_ip: SocketAddr,
     ) -> Result<()> {
@@ -60,7 +60,7 @@ impl Prover {
         let address = Address::from_str(&address.to_string()).context("invalid aleo address")?;
         let senders = self.senders.clone();
 
-        self.start_all(num_miner, address, pool_ip, prover_receiver, senders).await?;
+        self.start_all(num_worker, address, pool_ip, prover_receiver, senders).await?;
         Ok(())
     }
 

@@ -25,8 +25,8 @@ pub struct Cmd {
     pool_server: SocketAddr,
 
     /// max_core is the count of the thread pool used to calculate proof
-    #[structopt(short="n", long="num_miner", default_value = "1")]
-    num_miner: u8,
+    #[structopt(short="n", long="num_worker", default_value = "1")]
+    num_worker: u8,
 }
 
 impl Cmd {
@@ -41,9 +41,9 @@ impl Cmd {
 
         info!("Stratum client started!!!");
 
-        let mut mgr = Prover::new(senders, self.address.clone()).await;
-        if let Err(error) =  mgr.start_cpu(
-            self.num_miner,
+        let mut prover = Prover::new(senders, self.address.clone()).await;
+        if let Err(error) =  prover.start_cpu(
+            self.num_worker,
             self.address.clone(),
             self.pool_server).await
         {

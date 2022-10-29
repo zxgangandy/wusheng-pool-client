@@ -8,7 +8,7 @@ wusheng-pool-client
 # cpu mining
 - run --package wusheng-pool-client --bin wusheng-pool-client
   -- cpu-mining  --address=aleo1x3dm5pzdfs8hxg6xckx5lnndmarhnpe03h7lcg32c63dhc5pdcfqht927g 
-  --pool-server=127.0.0.1:8888 --worker=1 --threads=8
+  --pool-server=127.0.0.1:8888 --num_worker=1
 
 # design
 - manager->multi miner/one stats/one stratum client
