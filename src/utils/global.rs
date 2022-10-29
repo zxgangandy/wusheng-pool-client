@@ -18,8 +18,8 @@ impl Senders {
         })
     }
 
-    pub async fn set_prover_sender(&self, mgr_sender: Sender<ProverEvent>) {
-        *self.prover_sender.write().await = Some(mgr_sender);
+    pub async fn set_prover_sender(&self, prover_sender: Sender<ProverEvent>) {
+        *self.prover_sender.write().await = Some(prover_sender);
     }
 
     pub async fn prover_sender(&self) ->Sender<ProverEvent> {

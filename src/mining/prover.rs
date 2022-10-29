@@ -39,15 +39,13 @@ impl Prover {
     }
 
     pub async fn stop(&self) {
-        if self.running() {
-            let (tx, rx) = oneshot::channel();
-            let prover_sender = self.prover_sender.clone().unwrap();
-            if let Err(err) = prover_sender.send(ProverEvent::Exit(tx)).await {
-                error!("failed to stop prover: {err}");
-            }
-            rx.await.unwrap();
-            info!("Mgr exited");
+        let (tx, rx) = oneshot::channel();
+        let prover_sender = self.prover_sender.clone().unwrap();
+        if let Err(err) = prover_sender.send(ProverEvent::Exit(tx)).await {
+            error!("failed to stop prover: {err}");
         }
+        rx.await.unwrap();
+        info!("Mgr exited");
     }
 
     pub async fn start_cpu(
@@ -56,11 +54,13 @@ impl Prover {
         address: impl ToString,
         pool_ip: SocketAddr,
     ) -> Result<()> {
-        let (mgr_sender, mgr_receiver) = channel::<ProverEvent>(256);
-        self.prover_sender.replace(mgr_sender);
+        let (prover_sender, prover_receiver) = channel::<ProverEvent>(256);
+        self.prover_sender.replace(prover_sender.clone());
+        self.senders.set_prover_sender(prover_sender);
         let address = Address::from_str(&address.to_string()).context("invalid aleo address")?;
         let senders = self.senders.clone();
-        self.start_all(num_miner, address, pool_ip, mgr_receiver, senders).await?;
+
+        self.start_all(num_miner, address, pool_ip, prover_receiver, senders).await?;
         Ok(())
     }
 
