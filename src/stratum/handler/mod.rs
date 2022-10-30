@@ -14,7 +14,7 @@ use tokio::{
     sync::{mpsc, oneshot},
     time::{sleep, timeout},
 };
-use log::{error, info};
+use log::{debug, error, info};
 use anyhow::{Context, Result};
 use anyhow::{anyhow, bail};
 use tokio_util::codec::Framed;
@@ -118,35 +118,52 @@ impl Handler {
             StratumMessage::Response(_, result, error) => {
                 info!("Client received response message");
 
-                let mut bool_result = false;
-                let mut msg_result = "".to_string();
-                match result.unwrap() {
-                    ResponseParams::Bool(v)=>{
-                        //submit_result = v;
-                    },
-                    _ => {}
+                match result {
+                    Some(params) => {
+                        match params {
+                            ResponseParams::Bool(result) => {
+                                if result {
+                                    if let Err(e) = self.storage.prover_sender()
+                                        .await
+                                        .send(ProverEvent::SubmitResult(result, None))
+                                        .await
+                                    {
+                                        error!("Error sending share result to prover: {}", e);
+                                    }
+                                } else {
+                                    error!("Unexpected result: {}", result);
+                                }
+                            }
+                            _ => {
+                                error!("Unexpected response params");
+                            }
+                        }
+                    }
+                    None => {
+                        let error = error.unwrap();
+                        let msg = Some(error.message.to_string());
+                        if let Err(e) = self.storage.prover_sender()
+                            .await
+                            .send(ProverEvent::SubmitResult(false, msg))
+                            .await
+                        {
+                            error!("Error sending share result to prover: {}", e);
+                        }
+                    }
                 }
-
-                // self.storage
-                //     .mgr_sender()
-                //     .send(MiningEvent::SubmitResult(submit_result, Some(msg_result)))
-                //     .await
-                //     .context("")?;
             }
-            StratumMessage::Notify(
-                job_id,
-                block_header_root,
-                hashed_leaves_1,
-                hashed_leaves_2,
-                hashed_leaves_3,
-                hashed_leaves_4,
-                _
-            ) => {
+            StratumMessage::Notify(job_id, epoch_challenge, address, _, ) => {
                 info!("Client received notify message");
+                let job_id_bytes = hex::decode(job_id).expect("Failed to decode job_id");
+                if job_id_bytes.len() != 8 {
+                    bail!("Unexpected job_id length: {}", job_id_bytes.len());
+                }
+                let epoch = u64::from_le_bytes(job_id_bytes[0..8].try_into().unwrap());
+
                 self.storage
                     .prover_sender()
                     .await
-                    .send(ProverEvent::NewWork(0, Some("NewWork".to_string())))
+                    .send(ProverEvent::NewWork(epoch, epoch_challenge, address.unwrap()))
                     .await
                     .context("failed to send notify to prover")?;
             }
