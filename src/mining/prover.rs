@@ -10,30 +10,31 @@ use snarkvm::prelude::{Address, Testnet3};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task;
+use crate::mining;
 
 use crate::mining::worker::{Worker, WorkerEvent};
 use crate::mining::ProverEvent;
 use crate::mining::stats::{Stats, StatsEvent};
 use crate::stratum::message::StratumMessage;
-use crate::utils::global;
+use crate::storage::Storage;
 
 pub struct Prover {
     workers: Vec<Sender<WorkerEvent>>,
     prover_sender: Option<Sender<ProverEvent>>,
     stats: Arc<Stats>,
-    senders: Arc<global::Senders>,
+    storage: Arc<Storage>,
     miner_address: String,
 }
 
 impl Prover {
 
-    pub async fn new(senders: Arc<global::Senders>, miner_address: String,) -> Self {
+    pub async fn new(storage: Arc<Storage>, miner_address: String,) -> Self {
 
         Self {
             workers: vec![],
             prover_sender: None,
             stats: Stats::new().await,
-            senders,
+            storage,
             miner_address,
         }
     }
@@ -55,12 +56,14 @@ impl Prover {
         pool_ip: SocketAddr,
     ) -> Result<()> {
         let (prover_sender, prover_receiver) = channel::<ProverEvent>(256);
-        self.prover_sender.replace(prover_sender.clone());
-        self.senders.set_prover_sender(prover_sender);
-        let address = Address::from_str(&address.to_string()).context("invalid aleo address")?;
-        let senders = self.senders.clone();
 
-        self.start_all(num_worker, address, pool_ip, prover_receiver, senders).await?;
+        self.prover_sender.replace(prover_sender.clone());
+        self.storage.set_prover_sender(prover_sender).await;
+
+        let address = Address::from_str(&address.to_string()).context("invalid aleo address")?;
+        let storage = self.storage.clone();
+
+        self.start_all(num_worker, address, pool_ip, prover_receiver, storage).await?;
         Ok(())
     }
 
@@ -70,7 +73,7 @@ impl Prover {
         address: Address<Testnet3>,
         pool_ip: SocketAddr,
         mut mgr_receiver: Receiver<ProverEvent>,
-        senders: Arc<global::Senders>,
+        storage: Arc<Storage>,
     ) -> Result<()> {
         let threads = num_cpus::get() as u16 / num_miner as u16;
         for index in 0..num_miner {
@@ -78,7 +81,7 @@ impl Prover {
                 index,
                 threads,
                 self.stats.clone(),
-                senders.clone(),
+                storage.clone(),
                 self.miner_address.clone()
             );
             self.workers.push(miner.worker_sender());

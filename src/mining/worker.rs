@@ -35,8 +35,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::sync::mpsc::{Receiver, Sender};
 use crate::mining::stats::Stats;
 use crate::stratum::message::StratumMessage;
-use crate::utils::global;
-use crate::utils::global::Senders;
+use crate::storage::Storage;
 
 
 pub struct Worker {
@@ -47,7 +46,7 @@ pub struct Worker {
     ready: Arc<AtomicBool>,
     current_epoch: Arc<AtomicU64>,
     current_proof_target: Arc<AtomicU64>,
-    senders: Arc<Senders>,
+    storage: Arc<Storage>,
     puzzle: CoinbasePuzzle<Testnet3>,
     miner_address: String,
 }
@@ -65,7 +64,7 @@ impl Worker {
         index: u8,
         threads: u16,
         stats: Arc<Stats>,
-        senders: Arc<Senders>,
+        storage: Arc<Storage>,
         miner_address: String,
     ) -> Arc<Self> {
         let (miner_sender, miner_receiver) = channel::<WorkerEvent>(256);
@@ -90,7 +89,7 @@ impl Worker {
             ready: Arc::new(AtomicBool::new(true)),
             current_epoch: Default::default(),
             current_proof_target: Default::default(),
-            senders,
+            storage,
             puzzle,
             miner_address,
         };
@@ -119,7 +118,7 @@ impl Worker {
                     WorkerEvent::NewWork(epoch_number, epoch_challenge, address) => {
                         let hex = &*hex::decode(epoch_challenge.as_bytes()).unwrap();
                         let stats = miner.stats.clone();
-                        let senders = miner.senders.clone();
+                        let storage = miner.storage.clone();
                         let miner_address = miner.miner_address.clone();
                         let puzzle = miner.puzzle.clone();
 
@@ -128,7 +127,7 @@ impl Worker {
                             EpochChallenge::<Testnet3>::from_bytes_le(hex).unwrap(),
                             Address::<Testnet3>::from_str(&address).unwrap(),
                             stats.clone(),
-                            senders.clone(),
+                            storage.clone(),
                             puzzle.clone(),
                             miner_address.clone(),
                         ).await
@@ -162,7 +161,7 @@ impl Worker {
         epoch_challenge: EpochChallenge<Testnet3>,
         address: Address<Testnet3>,
         stats: Arc<Stats>,
-        senders: Arc<Senders>,
+        storage: Arc<Storage>,
         puzzle: CoinbasePuzzle<Testnet3>,
         miner_address: String,
     ) {
@@ -187,7 +186,7 @@ impl Worker {
                 let current_epoch = current_epoch.clone();
                 let epoch_challenge = epoch_challenge.clone();
                 let stats = stats.clone();
-                let senders = senders.clone();
+                let storage = storage.clone();
                 let puzzle = puzzle.clone();
                 let miner_address = miner_address.clone();
 
@@ -198,7 +197,7 @@ impl Worker {
                     proof_target,
                     address,
                     stats,
-                    senders,
+                    storage,
                     puzzle,
                     miner_address
                 );
@@ -218,7 +217,7 @@ impl Worker {
         proof_target: u64,
         address: Address<Testnet3>,
         stats: Arc<Stats>,
-        senders: Arc<Senders>,
+        storage: Arc<Storage>,
         puzzle: CoinbasePuzzle<Testnet3>,
         miner_address: String,
     ) {
@@ -270,7 +269,7 @@ impl Worker {
                 hex::encode(solution.commitment().to_bytes_le().unwrap()),
                 hex::encode(solution.proof().to_bytes_le().unwrap()),
             );
-            if let Err(error) = senders.handler_sender().await.send(message).await {
+            if let Err(error) = storage.handler_sender().await.send(message).await {
                 error!("Failed to send PoolResponse: {}", error);
             }
             stats.update_total_proofs();

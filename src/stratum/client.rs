@@ -21,7 +21,7 @@ use crate::mining::ProverEvent;
 use crate::stratum::codec::StratumCodec;
 use crate::stratum::handler::Handler;
 use crate::stratum::message::StratumMessage;
-use crate::utils::global::Senders;
+use crate::storage::Storage;
 
 pub struct Client{
     pool_server: SocketAddr,
@@ -40,7 +40,7 @@ impl Client {
     ///
     /// Preconditions: Client connected the pool server, then handler start to run.
     ///
-    pub fn start(&self, mut senders: Arc<Senders>) -> Result<()>  {
+    pub fn start(&self, storage: Arc<Storage>) -> Result<()>  {
 
         let pool_server = self.pool_server.clone();
         let miner_address = self.miner_address.clone();
@@ -49,7 +49,9 @@ impl Client {
                 let stream = Client::connect_to_pool_server(&pool_server).await.unwrap();
                 let mut framed = Framed::new(stream, StratumCodec::default());
 
-                let mut handler = Handler::new(&miner_address, senders.clone());
+                let mut handler = Handler::new(&miner_address, storage.clone());
+                storage.set_handler_sender(handler.handler_sender).await;
+
                 if let Err(error) = handler.run(&mut framed).await {
                     error!("[Client handler] {}", error);
                     sleep(Duration::from_secs(5)).await;
@@ -65,6 +67,7 @@ impl Client {
     pub async fn connect_to_pool_server(
         pool_server: &SocketAddr,
     ) -> Result<TcpStream>  {
+        let mut backoff = 1;
         loop {
             match timeout(Duration::from_secs(5), TcpStream::connect(pool_server)).await {
                 Ok(stream) => match stream {
@@ -74,13 +77,22 @@ impl Client {
                     }
                     Err(e) => {
                         error!("Failed to connect to the pool server: {}", e);
-                        sleep(Duration::from_secs(5)).await;
+
+                        if backoff > 64 {
+                            // Connect has failed too many times. Return the error.
+                            return Err(e.into());
+                        }
+
+                        sleep(Duration::from_secs(5 * backoff)).await;
                     }
                 },
                 Err(_) => {
                     error!("Failed to connect to the pool server: Timed out");
                 }
             }
+
+            // Double the back off
+            backoff *= 2;
         }
     }
 

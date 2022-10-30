@@ -16,9 +16,8 @@ pub enum StratumMessage {
     SetDifficulty(u64),
 
     /// New job from the mining pool.
-    /// (job_id, block_header_root, hashed_leaves_1, hashed_leaves_2, hashed_leaves_3,
-    ///  hashed_leaves_4, clean_jobs)
-    Notify(String, String, String, String, String, String, bool),
+    /// (job_id, epoch_challenge, address, clean_jobs)
+    Notify(String, String, Option<String>, bool),
 
     /// Submit shares to the pool.
     /// (id, worker_name, job_id, nonce, commitment, proof)
@@ -42,7 +41,7 @@ impl StratumMessage {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct NotifyParams(pub String, pub String, pub String, pub String, pub String, pub String, pub bool);
+pub struct NotifyParams(pub String, pub String, pub Option<String>, pub bool);
 
 #[derive(Serialize, Deserialize)]
 pub struct SubscribeParams(pub String, pub String, pub Option<String>);

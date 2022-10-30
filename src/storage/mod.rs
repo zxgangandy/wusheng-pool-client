@@ -5,12 +5,12 @@ use crate::mining::ProverEvent;
 use crate::stratum::message::StratumMessage;
 
 #[derive(Debug)]
-pub struct Senders {
+pub struct Storage {
     prover_sender: RwLock<Option<Sender<ProverEvent>>>,
     handler_sender: RwLock<Option<Sender<StratumMessage>>>,
 }
 
-impl Senders {
+impl Storage {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             prover_sender: RwLock::new(None),

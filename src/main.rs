@@ -3,6 +3,7 @@ mod cmd;
 mod mining;
 mod account;
 mod utils;
+mod storage;
 
 use std::process;
 use structopt::StructOpt;

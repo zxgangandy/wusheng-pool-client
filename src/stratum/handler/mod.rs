@@ -27,7 +27,7 @@ use authorize::AuthorizeHandler;
 use subscribe::SubscribeHandler;
 use crate::mining::ProverEvent;
 use crate::stratum::message::{ResponseParams, StratumMessage};
-use crate::utils::global::Senders;
+use crate::storage::Storage;
 
 #[derive(Debug)]
 pub struct Handler {
@@ -35,7 +35,7 @@ pub struct Handler {
     pub address: String,
     pub handler_sender: Sender<StratumMessage>,
     pub handler_receiver: Receiver<StratumMessage>,
-    pub senders: Arc<Senders>,
+    pub storage: Arc<Storage>,
     pub current_proof_target: Arc<AtomicU64>,
 }
 
@@ -44,17 +44,16 @@ impl Handler {
     pub fn new(
         //framed: Framed<TcpStream, StratumCodec>,
         address: &String,
-        senders: Arc<Senders>
+        storage: Arc<Storage>
     ) -> Self {
         let (handler_sender, mut handler_receiver) = channel::<StratumMessage>(1024);
-        senders.set_handler_sender(handler_sender.clone());
 
         return Handler {
             //framed,
             address: address.clone(),
             handler_sender,
             handler_receiver,
-            senders,
+            storage,
             current_proof_target: Arc::new(Default::default())
         };
     }
@@ -128,7 +127,7 @@ impl Handler {
                     _ => {}
                 }
 
-                // self.senders
+                // self.storage
                 //     .mgr_sender()
                 //     .send(MiningEvent::SubmitResult(submit_result, Some(msg_result)))
                 //     .await
@@ -144,11 +143,12 @@ impl Handler {
                 _
             ) => {
                 info!("Client received notify message");
-                // self.senders
-                //     .mgr_sender()
-                //     .send(MiningEvent::NewWork(0, Some("NewWork".to_string())))
-                //     .await
-                //     .context("failed to send notify to miner manager")?;
+                self.storage
+                    .prover_sender()
+                    .await
+                    .send(ProverEvent::NewWork(0, Some("NewWork".to_string())))
+                    .await
+                    .context("failed to send notify to prover")?;
             }
             StratumMessage::SetDifficulty(difficulty_target) => {
                 info!("Client received set target message");
