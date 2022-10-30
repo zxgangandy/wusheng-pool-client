@@ -50,7 +50,7 @@ impl Client {
                 let mut framed = Framed::new(stream, StratumCodec::default());
 
                 let mut handler = Handler::new(&miner_address, storage.clone());
-                storage.set_handler_sender(handler.handler_sender).await;
+                storage.set_handler_sender(handler.handler_sender.clone()).await;
 
                 if let Err(error) = handler.run(&mut framed).await {
                     error!("[Client handler] {}", error);

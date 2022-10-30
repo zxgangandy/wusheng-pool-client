@@ -14,7 +14,6 @@ use log::{debug, error, info};
 use rand::{thread_rng, RngCore};
 use json_rpc_types::Id;
 use rayon::{ThreadPool, ThreadPoolBuilder};
-//use snarkvm::prelude::{Address, Testnet3, ToBytes};
 
 use snarkvm::{
     compiler::{UniversalSRS},
@@ -177,9 +176,6 @@ impl Worker {
 
         task::spawn(async move {
             ready.store(false, Ordering::SeqCst);
-            // ensure new work starts before returning
-            //let current_epoch = current_epoch.clone();
-            //let epoch_challenge = epoch_challenge.clone();
 
             while !terminator.load(Ordering::SeqCst) {
                 info!("Miner is mining now");

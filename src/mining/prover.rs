@@ -136,6 +136,12 @@ impl Prover {
                     error!("Failed to send submit result to stats: {err}");
                 }
             }
+            ProverEvent::NewTarget(target) => {
+                for worker in self.workers.iter() {
+                    let event = WorkerEvent::NewTarget(target);
+                    worker.try_send(event)?;
+                }
+            }
             _ => {
                 warn!("Unexpected msg");
             }
@@ -160,7 +166,7 @@ impl Prover {
         self.stats.sender()
             .send(StatsEvent::Exit(tx))
             .await
-            .context("statistic")?;
+            .context("stat exit")?;
         rx.await.context("failed to get exit response of statistic mod")?;
         Ok(())
     }

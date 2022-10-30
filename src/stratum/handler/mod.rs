@@ -170,6 +170,12 @@ impl Handler {
             StratumMessage::SetDifficulty(difficulty_target) => {
                 info!("Client received set target message");
                 self.new_target(difficulty_target);
+                self.storage
+                    .prover_sender()
+                    .await
+                    .send(ProverEvent::NewTarget(difficulty_target))
+                    .await
+                    .context("failed to send difficulty to prover")?;
             }
             _ => {
                 info!("Unexpected message: {}", message.name());
