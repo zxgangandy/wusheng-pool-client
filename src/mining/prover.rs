@@ -151,10 +151,10 @@ impl Prover {
     }
 
     async fn exit(&mut self, ) -> Result<()> {
-        let (tx, rx) = oneshot::channel();
-        let mgr_sender = self.prover_sender.clone().unwrap();
-        mgr_sender.send(ProverEvent::Exit(tx)).await.context("client")?;
-        rx.await.context("failed to get exit response of client")?;
+        // let (tx, rx) = oneshot::channel();
+        // let prover_sender = self.prover_sender.clone().unwrap();
+        // prover_sender.send(ProverEvent::Exit(tx)).await.context("client")?;
+        // rx.await.context("failed to get exit response of client")?;
 
         for (i, worker) in self.workers.iter().enumerate() {
             let (tx, rx) = oneshot::channel();

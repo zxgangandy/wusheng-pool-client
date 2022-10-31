@@ -2,8 +2,6 @@
 
 pub mod subscribe;
 pub mod authorize;
-pub mod notify;
-pub mod set_difficulty;
 
 use std::any::Any;
 use std::sync::Arc;
@@ -31,30 +29,25 @@ use crate::storage::Storage;
 
 #[derive(Debug)]
 pub struct Handler {
-    //pub framed: Framed<TcpStream, StratumCodec>,
     pub address: String,
     pub handler_sender: Sender<StratumMessage>,
     pub handler_receiver: Receiver<StratumMessage>,
     pub storage: Arc<Storage>,
-    pub current_proof_target: Arc<AtomicU64>,
 }
 
 impl Handler {
 
     pub fn new(
-        //framed: Framed<TcpStream, StratumCodec>,
         address: &String,
         storage: Arc<Storage>
     ) -> Self {
         let (handler_sender, mut handler_receiver) = channel::<StratumMessage>(1024);
 
         return Handler {
-            //framed,
             address: address.clone(),
             handler_sender,
             handler_receiver,
             storage,
-            current_proof_target: Arc::new(Default::default())
         };
     }
 
@@ -69,7 +62,6 @@ impl Handler {
     /// then the stratum server send back 'authorize' response;
     pub async fn run(
         &mut self,
-        //mgr_sender: Sender<MiningEvent>,
         framed: &mut Framed<TcpStream, StratumCodec>,
     ) -> Result<()> {
         if let Err(error) = SubscribeHandler::exec(framed).await {
@@ -82,7 +74,6 @@ impl Handler {
             return Err(anyhow!(error));
         }
 
-        //let framed = &mut self.framed;
         loop {
             tokio::select! {
                 Some(message) = self.handler_receiver.recv() => {
@@ -128,7 +119,7 @@ impl Handler {
                                         .send(ProverEvent::SubmitResult(result, None))
                                         .await
                                     {
-                                        error!("Error sending share result to prover: {}", e);
+                                        error!("Error sending result to prover: {}", e);
                                     }
                                 } else {
                                     error!("Unexpected result: {}", result);
@@ -169,7 +160,6 @@ impl Handler {
             }
             StratumMessage::SetDifficulty(difficulty_target) => {
                 info!("Client received set target message");
-                self.new_target(difficulty_target);
                 self.storage
                     .prover_sender()
                     .await
@@ -183,11 +173,6 @@ impl Handler {
         }
 
         Ok(())
-    }
-
-    fn new_target(&self, proof_target: u64) {
-        self.current_proof_target.store(proof_target, Ordering::SeqCst);
-        info!("New proof target: {}", proof_target);
     }
 
 }

@@ -2,21 +2,15 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use json_rpc_types::Id;
 use tokio::{
     net::TcpStream,
     task,
     time::{sleep, timeout},
 };
 use tokio_util::codec::Framed;
-use futures_util::sink::SinkExt;
-use tokio_stream::StreamExt;
-use snarkvm::prelude::Address;
 use log::{error, info};
 use anyhow::Result;
-use anyhow::{anyhow, bail};
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::Sender;
 use crate::mining::ProverEvent;
 use crate::stratum::codec::StratumCodec;
 use crate::stratum::handler::Handler;
