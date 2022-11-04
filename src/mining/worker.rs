@@ -241,8 +241,8 @@ impl Worker {
                 return;
             }
             // Ensure the share difficulty target is met.
-            let proof_difficulty =
-                u64::MAX / sha256d_to_u64(&*solution.commitment().to_bytes_le().unwrap());
+            let proof_difficulty = solution.to_target()?;
+            //u64::MAX / sha256d_to_u64(&*solution.commitment().to_bytes_le().unwrap());
             if proof_difficulty < proof_target {
                 debug!("Share difficulty target not met: {} > {}",
                     proof_difficulty,
