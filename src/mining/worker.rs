@@ -263,7 +263,7 @@ impl Worker {
                 hex::encode(epoch_number.to_le_bytes()),
                 hex::encode(nonce.to_bytes_le().unwrap()),
                 hex::encode(solution.commitment().to_bytes_le().unwrap()),
-                hex::encode(solution.proof().to_bytes_le().unwrap()),
+                solution.to_string(),
             );
             if let Err(error) = storage.handler_sender().await.send(message).await {
                 error!("Failed to send PoolResponse: {}", error);
