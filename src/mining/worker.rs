@@ -186,7 +186,7 @@ impl Worker {
                 let puzzle = puzzle.clone();
                 let miner_address = miner_address.clone();
 
-                Self::prove(
+                let result = Self::prove(
                     current_epoch,
                     epoch_number,
                     epoch_challenge,
@@ -196,7 +196,11 @@ impl Worker {
                     storage,
                     puzzle,
                     miner_address
-                );
+                ).await?;
+
+                if result {
+                    break;
+                }
             }
 
             //debug!("block {} terminated", height);
@@ -216,14 +220,14 @@ impl Worker {
         storage: Arc<Storage>,
         puzzle: CoinbasePuzzle<Testnet3>,
         miner_address: String,
-    ) {
+    ) -> Result<bool> {
         if epoch_number != current_epoch.load(Ordering::SeqCst) {
             debug!(
                 "Terminating stale work: current {} latest {}",
                 epoch_number,
                 current_epoch.load(Ordering::SeqCst)
             );
-            return;
+            return Ok(true);
         }
 
         let nonce = thread_rng().next_u64();
@@ -238,7 +242,7 @@ impl Worker {
                     epoch_number,
                     current_epoch.load(Ordering::SeqCst)
                 );
-                return;
+                return Ok(true);
             }
             // Ensure the share difficulty target is met.
             let proof_difficulty = solution.to_target()?;
@@ -249,7 +253,7 @@ impl Worker {
                     proof_target
                 );
                 stats.update_total_proofs();
-                return;
+                return Ok(false);
             }
 
             info!("Share found for epoch {} with difficulty {}",
@@ -268,8 +272,11 @@ impl Worker {
             if let Err(error) = storage.handler_sender().await.send(message).await {
                 error!("Failed to send PoolResponse: {}", error);
             }
+
             stats.update_total_proofs();
         }
+
+        return Ok(true);
     }
 
 }

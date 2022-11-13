@@ -75,7 +75,9 @@ impl Prover {
         mut mgr_receiver: Receiver<ProverEvent>,
         storage: Arc<Storage>,
     ) -> Result<()> {
+        // threads for each worker
         let threads = num_cpus::get() as u16 / num_miner as u16;
+
         for index in 0..num_miner {
             let mut miner = Worker::new(
                 index,
