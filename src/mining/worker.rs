@@ -10,7 +10,7 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
 use anyhow::Result;
 use anyhow::{anyhow, bail};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use rand::{thread_rng, RngCore};
 use json_rpc_types::Id;
 use rayon::{ThreadPool, ThreadPoolBuilder};
@@ -178,7 +178,7 @@ impl Worker {
             ready.store(false, Ordering::SeqCst);
 
             while !terminator.load(Ordering::SeqCst) {
-                info!("Miner is mining now");
+                info!("Worker is proving now");
                 let current_epoch = current_epoch.clone();
                 let epoch_challenge = epoch_challenge.clone();
                 let stats = stats.clone();
@@ -186,7 +186,7 @@ impl Worker {
                 let puzzle = puzzle.clone();
                 let miner_address = miner_address.clone();
 
-                let result = Self::prove(
+                match Self::prove(
                     current_epoch,
                     epoch_number,
                     epoch_challenge,
@@ -196,14 +196,17 @@ impl Worker {
                     storage,
                     puzzle,
                     miner_address
-                ).await?;
-
-                if result {
-                    break;
+                ).await {
+                    Ok(..) => {
+                        info!("retry proving");
+                    },
+                    Err(error) => {
+                        warn!("Failed to fetch prover solution target: {}", error);
+                        return;
+                    }
                 }
             }
 
-            //debug!("block {} terminated", height);
             ready.store(true, Ordering::SeqCst);
         });
 
@@ -220,14 +223,16 @@ impl Worker {
         storage: Arc<Storage>,
         puzzle: CoinbasePuzzle<Testnet3>,
         miner_address: String,
-    ) -> Result<bool> {
+    ) -> Result<()> {
         if epoch_number != current_epoch.load(Ordering::SeqCst) {
             debug!(
                 "Terminating stale work: current {} latest {}",
                 epoch_number,
                 current_epoch.load(Ordering::SeqCst)
             );
-            return Ok(true);
+            return Err(bail!("Terminating stale work 1: current {} latest {}",
+                epoch_number,
+                current_epoch.load(Ordering::SeqCst)));
         }
 
         let nonce = thread_rng().next_u64();
@@ -236,24 +241,15 @@ impl Worker {
         if let Ok(Ok(solution)) = task::spawn_blocking(move || {
             puzzle.prove(&epoch_challenge, address, nonce)
         }).await {
-            if epoch_number != current_epoch.load(Ordering::SeqCst) {
-                debug!(
-                    "Terminating stale work: current {} latest {}",
-                    epoch_number,
-                    current_epoch.load(Ordering::SeqCst)
-                );
-                return Ok(true);
-            }
-            // Ensure the share difficulty target is met.
+            // Ensure the proof target is met.
             let proof_difficulty = solution.to_target()?;
-            //u64::MAX / sha256d_to_u64(&*solution.commitment().to_bytes_le().unwrap());
             if proof_difficulty < proof_target {
-                debug!("Share difficulty target not met: {} > {}",
+                debug!("Proof difficulty target not met: {} < {}",
                     proof_difficulty,
                     proof_target
                 );
                 stats.update_total_proofs();
-                return Ok(false);
+                return Ok(());
             }
 
             info!("Share found for epoch {} with difficulty {}",
@@ -276,7 +272,7 @@ impl Worker {
             stats.update_total_proofs();
         }
 
-        return Ok(true);
+        return Ok(());
     }
 
 }
